@@ -1,0 +1,1 @@
+classes = ["nobody", "all", "some"]
