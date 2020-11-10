@@ -1,0 +1,140 @@
+2020-11-10 12:51:00.784941: I tensorflow/stream_executor/platform/default/dso_loader.cc:44] Successfully opened dynamic library cudart64_101.dll
+Found 4492 images belonging to 3 classes.
+Found 1122 images belonging to 3 classes.
+2020-11-10 12:51:03.875172: I tensorflow/stream_executor/platform/default/dso_loader.cc:44] Successfully opened dynamic library nvcuda.dll
+2020-11-10 12:51:04.753990: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1555] Found device 0 with properties: 
+pciBusID: 0000:01:00.0 name: GeForce GTX 1050 Ti with Max-Q Design computeCapability: 6.1
+coreClock: 1.4175GHz coreCount: 6 deviceMemorySize: 4.00GiB deviceMemoryBandwidth: 104.43GiB/s
+2020-11-10 12:51:04.754903: I tensorflow/stream_executor/platform/default/dso_loader.cc:44] Successfully opened dynamic library cudart64_101.dll
+2020-11-10 12:51:04.760407: I tensorflow/stream_executor/platform/default/dso_loader.cc:44] Successfully opened dynamic library cublas64_10.dll
+2020-11-10 12:51:04.770170: I tensorflow/stream_executor/platform/default/dso_loader.cc:44] Successfully opened dynamic library cufft64_10.dll
+2020-11-10 12:51:04.779527: I tensorflow/stream_executor/platform/default/dso_loader.cc:44] Successfully opened dynamic library curand64_10.dll
+2020-11-10 12:51:04.785132: I tensorflow/stream_executor/platform/default/dso_loader.cc:44] Successfully opened dynamic library cusolver64_10.dll
+2020-11-10 12:51:04.793720: I tensorflow/stream_executor/platform/default/dso_loader.cc:44] Successfully opened dynamic library cusparse64_10.dll
+2020-11-10 12:51:04.804068: I tensorflow/stream_executor/platform/default/dso_loader.cc:44] Successfully opened dynamic library cudnn64_7.dll
+2020-11-10 12:51:04.805515: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1697] Adding visible gpu devices: 0
+2020-11-10 12:51:04.806463: I tensorflow/core/platform/cpu_feature_guard.cc:142] Your CPU supports instructions that this TensorFlow binary was not compiled to use: AVX AVX2
+2020-11-10 12:51:04.811294: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1555] Found device 0 with properties:
+pciBusID: 0000:01:00.0 name: GeForce GTX 1050 Ti with Max-Q Design computeCapability: 6.1
+coreClock: 1.4175GHz coreCount: 6 deviceMemorySize: 4.00GiB deviceMemoryBandwidth: 104.43GiB/s
+2020-11-10 12:51:04.825525: I tensorflow/stream_executor/platform/default/dso_loader.cc:44] Successfully opened dynamic library cudart64_101.dll
+2020-11-10 12:51:04.826110: I tensorflow/stream_executor/platform/default/dso_loader.cc:44] Successfully opened dynamic library cublas64_10.dll
+2020-11-10 12:51:04.826639: I tensorflow/stream_executor/platform/default/dso_loader.cc:44] Successfully opened dynamic library cufft64_10.dll
+2020-11-10 12:51:04.826972: I tensorflow/stream_executor/platform/default/dso_loader.cc:44] Successfully opened dynamic library curand64_10.dll
+2020-11-10 12:51:04.827191: I tensorflow/stream_executor/platform/default/dso_loader.cc:44] Successfully opened dynamic library cusolver64_10.dll
+2020-11-10 12:51:04.827415: I tensorflow/stream_executor/platform/default/dso_loader.cc:44] Successfully opened dynamic library cusparse64_10.dll
+2020-11-10 12:51:04.827863: I tensorflow/stream_executor/platform/default/dso_loader.cc:44] Successfully opened dynamic library cudnn64_7.dll
+2020-11-10 12:51:04.828151: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1697] Adding visible gpu devices: 0
+2020-11-10 12:51:05.347919: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1096] Device interconnect StreamExecutor with strength 1 edge matrix:
+2020-11-10 12:51:05.348236: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1102]      0 
+2020-11-10 12:51:05.348687: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1115] 0:   N
+2020-11-10 12:51:05.349121: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1241] Created TensorFlow device (/job:localhost/replica:0/task:0/device:GPU:0 with 2992 MB memory) -> physical GPU (device: 0, name: GeForce GTX 1050 
+Ti with Max-Q Design, pci bus id: 0000:01:00.0, compute capability: 6.1)
+Train for 562 steps, validate for 141 steps
+Epoch 1/100
+2020-11-10 12:51:06.296378: I tensorflow/stream_executor/platform/default/dso_loader.cc:44] Successfully opened dynamic library cublas64_10.dll
+2020-11-10 12:51:06.550423: I tensorflow/stream_executor/platform/default/dso_loader.cc:44] Successfully opened dynamic library cudnn64_7.dll
+2020-11-10 12:51:07.244977: W tensorflow/stream_executor/gpu/redzone_allocator.cc:312] Internal: Invoking GPU asm compilation is supported on Cuda non-Windows platforms only
+Relying on driver to perform ptx compilation. This message will be only logged once.
+562/562 [==============================] - 21s 37ms/step - loss: 1.0994 - accuracy: 0.3393 - val_loss: 1.0983 - val_accuracy: 0.3378
+Epoch 2/100
+561/562 [============================>.] - ETA: 0s - loss: 1.0973 - accuracy: 0.34872020-11-10 12:51:42.718672: W tensorflow/core/kernels/data/generator_dataset_op.cc:103] Error occurred when finalizing GeneratorDataset iterator: Cancelled: Operation was cancelled
+562/562 [==============================] - 21s 37ms/step - loss: 1.0973 - accuracy: 0.3486 - val_loss: 1.0963 - val_accuracy: 0.3538
+Epoch 3/100
+561/562 [============================>.] - ETA: 0s - loss: 1.0967 - accuracy: 0.35452020-11-10 12:52:16.822295: W tensorflow/core/kernels/data/generator_dataset_op.cc:103] Error occurred when finalizing GeneratorDataset iterator: Cancelled: Operation was cancelled
+562/562 [==============================] - 33s 59ms/step - loss: 1.0968 - accuracy: 0.3544 - val_loss: 1.0952 - val_accuracy: 0.3824
+Epoch 4/100
+560/562 [============================>.] - ETA: 0s - loss: 1.0949 - accuracy: 0.36002020-11-10 12:52:43.646851: W tensorflow/core/kernels/data/generator_dataset_op.cc:103] Error occurred when finalizing GeneratorDataset iterator: Cancelled: Operation was cancelled
+562/562 [==============================] - 27s 48ms/step - loss: 1.0949 - accuracy: 0.3598 - val_loss: 1.0980 - val_accuracy: 0.3414
+Epoch 5/100
+561/562 [============================>.] - ETA: 0s - loss: 1.0932 - accuracy: 0.36432020-11-10 12:53:04.863874: W tensorflow/core/kernels/data/generator_dataset_op.cc:103] Error occurred when finalizing GeneratorDataset iterator: Cancelled: Operation was cancelled
+562/562 [==============================] - 21s 38ms/step - loss: 1.0932 - accuracy: 0.3644 - val_loss: 1.1019 - val_accuracy: 0.3485
+Epoch 6/100
+561/562 [============================>.] - ETA: 0s - loss: 1.0928 - accuracy: 0.36722020-11-10 12:53:24.990064: W tensorflow/core/kernels/data/generator_dataset_op.cc:103] Error occurred when finalizing GeneratorDataset iterator: Cancelled: Operation was cancelled
+562/562 [==============================] - 20s 36ms/step - loss: 1.0929 - accuracy: 0.3671 - val_loss: 1.0916 - val_accuracy: 0.3717
+Epoch 7/100
+561/562 [============================>.] - ETA: 0s - loss: 1.0890 - accuracy: 0.38792020-11-10 12:53:45.547688: W tensorflow/core/kernels/data/generator_dataset_op.cc:103] Error occurred when finalizing GeneratorDataset iterator: Cancelled: Operation was cancelled
+562/562 [==============================] - 21s 37ms/step - loss: 1.0889 - accuracy: 0.3880 - val_loss: 1.0904 - val_accuracy: 0.3592
+Epoch 8/100
+560/562 [============================>.] - ETA: 0s - loss: 1.0641 - accuracy: 0.43502020-11-10 12:54:04.622536: W tensorflow/core/kernels/data/generator_dataset_op.cc:103] Error occurred when finalizing GeneratorDataset iterator: Cancelled: Operation was cancelled
+562/562 [==============================] - 19s 34ms/step - loss: 1.0643 - accuracy: 0.4350 - val_loss: 1.0409 - val_accuracy: 0.4554
+Epoch 9/100
+560/562 [============================>.] - ETA: 0s - loss: 1.0078 - accuracy: 0.50132020-11-10 12:54:23.445739: W tensorflow/core/kernels/data/generator_dataset_op.cc:103] Error occurred when finalizing GeneratorDataset iterator: Cancelled: Operation was cancelled
+562/562 [==============================] - 19s 34ms/step - loss: 1.0082 - accuracy: 0.5018 - val_loss: 0.9419 - val_accuracy: 0.5463
+Epoch 10/100
+561/562 [============================>.] - ETA: 0s - loss: 0.9251 - accuracy: 0.54482020-11-10 12:54:42.402321: W tensorflow/core/kernels/data/generator_dataset_op.cc:103] Error occurred when finalizing GeneratorDataset iterator: Cancelled: Operation was cancelled
+562/562 [==============================] - 19s 34ms/step - loss: 0.9243 - accuracy: 0.5452 - val_loss: 0.9290 - val_accuracy: 0.5419
+Epoch 11/100
+561/562 [============================>.] - ETA: 0s - loss: 0.8466 - accuracy: 0.59742020-11-10 12:55:01.417783: W tensorflow/core/kernels/data/generator_dataset_op.cc:103] Error occurred when finalizing GeneratorDataset iterator: Cancelled: Operation was cancelled
+562/562 [==============================] - 19s 34ms/step - loss: 0.8460 - accuracy: 0.5977 - val_loss: 0.8180 - val_accuracy: 0.5927
+Epoch 12/100
+560/562 [============================>.] - ETA: 0s - loss: 0.7992 - accuracy: 0.61812020-11-10 12:55:20.809616: W tensorflow/core/kernels/data/generator_dataset_op.cc:103] Error occurred when finalizing GeneratorDataset iterator: Cancelled: Operation was cancelled
+562/562 [==============================] - 19s 34ms/step - loss: 0.7998 - accuracy: 0.6180 - val_loss: 0.7791 - val_accuracy: 0.6248
+Epoch 13/100
+560/562 [============================>.] - ETA: 0s - loss: 0.7633 - accuracy: 0.63172020-11-10 12:55:40.359560: W tensorflow/core/kernels/data/generator_dataset_op.cc:103] Error occurred when finalizing GeneratorDataset iterator: Cancelled: Operation was cancelled
+562/562 [==============================] - 19s 35ms/step - loss: 0.7638 - accuracy: 0.6316 - val_loss: 0.7596 - val_accuracy: 0.6426
+Epoch 14/100
+561/562 [============================>.] - ETA: 0s - loss: 0.7333 - accuracy: 0.65222020-11-10 12:56:01.836122: W tensorflow/core/kernels/data/generator_dataset_op.cc:103] Error occurred when finalizing GeneratorDataset iterator: Cancelled: Operation was cancelled
+562/562 [==============================] - 23s 40ms/step - loss: 0.7331 - accuracy: 0.6523 - val_loss: 0.7288 - val_accuracy: 0.6346
+Epoch 15/100
+561/562 [============================>.] - ETA: 0s - loss: 0.7003 - accuracy: 0.66022020-11-10 12:56:24.742184: W tensorflow/core/kernels/data/generator_dataset_op.cc:103] Error occurred when finalizing GeneratorDataset iterator: Cancelled: Operation was cancelled
+562/562 [==============================] - 22s 39ms/step - loss: 0.7001 - accuracy: 0.6603 - val_loss: 0.7196 - val_accuracy: 0.6444
+Epoch 16/100
+561/562 [============================>.] - ETA: 0s - loss: 0.6800 - accuracy: 0.68002020-11-10 12:56:46.085750: W tensorflow/core/kernels/data/generator_dataset_op.cc:103] Error occurred when finalizing GeneratorDataset iterator: Cancelled: Operation was cancelled
+562/562 [==============================] - 23s 40ms/step - loss: 0.6796 - accuracy: 0.6803 - val_loss: 0.7155 - val_accuracy: 0.6444
+Epoch 17/100
+560/562 [============================>.] - ETA: 0s - loss: 0.6512 - accuracy: 0.69132020-11-10 12:57:10.131221: W tensorflow/core/kernels/data/generator_dataset_op.cc:103] Error occurred when finalizing GeneratorDataset iterator: Cancelled: Operation was cancelled
+562/562 [==============================] - 24s 42ms/step - loss: 0.6526 - accuracy: 0.6910 - val_loss: 0.6852 - val_accuracy: 0.6693
+Epoch 18/100
+560/562 [============================>.] - ETA: 0s - loss: 0.6306 - accuracy: 0.70072020-11-10 12:57:32.348270: W tensorflow/core/kernels/data/generator_dataset_op.cc:103] Error occurred when finalizing GeneratorDataset iterator: Cancelled: Operation was cancelled
+562/562 [==============================] - 22s 39ms/step - loss: 0.6305 - accuracy: 0.7008 - val_loss: 0.7447 - val_accuracy: 0.6649
+Epoch 19/100
+560/562 [============================>.] - ETA: 0s - loss: 0.6173 - accuracy: 0.71382020-11-10 12:57:55.850861: W tensorflow/core/kernels/data/generator_dataset_op.cc:103] Error occurred when finalizing GeneratorDataset iterator: Cancelled: Operation was cancelled
+562/562 [==============================] - 23s 40ms/step - loss: 0.6170 - accuracy: 0.7139 - val_loss: 0.6346 - val_accuracy: 0.6863
+Epoch 20/100
+560/562 [============================>.] - ETA: 0s - loss: 0.6006 - accuracy: 0.71762020-11-10 12:58:15.963346: W tensorflow/core/kernels/data/generator_dataset_op.cc:103] Error occurred when finalizing GeneratorDataset iterator: Cancelled: Operation was cancelled
+562/562 [==============================] - 20s 36ms/step - loss: 0.6012 - accuracy: 0.7177 - val_loss: 0.6566 - val_accuracy: 0.6774
+Epoch 21/100
+561/562 [============================>.] - ETA: 0s - loss: 0.5858 - accuracy: 0.73112020-11-10 12:58:38.651557: W tensorflow/core/kernels/data/generator_dataset_op.cc:103] Error occurred when finalizing GeneratorDataset iterator: Cancelled: Operation was cancelled
+562/562 [==============================] - 23s 41ms/step - loss: 0.5868 - accuracy: 0.7311 - val_loss: 0.6598 - val_accuracy: 0.6711
+Epoch 22/100
+559/562 [============================>.] - ETA: 0s - loss: 0.5712 - accuracy: 0.73142020-11-10 12:59:00.072993: W tensorflow/core/kernels/data/generator_dataset_op.cc:103] Error occurred when finalizing GeneratorDataset iterator: Cancelled: Operation was cancelled
+562/562 [==============================] - 20s 36ms/step - loss: 0.5725 - accuracy: 0.7306 - val_loss: 0.6110 - val_accuracy: 0.7103
+Epoch 23/100
+561/562 [============================>.] - ETA: 0s - loss: 0.5626 - accuracy: 0.73352020-11-10 12:59:20.822673: W tensorflow/core/kernels/data/generator_dataset_op.cc:103] Error occurred when finalizing GeneratorDataset iterator: Cancelled: Operation was cancelled
+562/562 [==============================] - 22s 39ms/step - loss: 0.5626 - accuracy: 0.7333 - val_loss: 0.6579 - val_accuracy: 0.6854
+Epoch 24/100
+561/562 [============================>.] - ETA: 0s - loss: 0.5425 - accuracy: 0.74982020-11-10 12:59:44.373508: W tensorflow/core/kernels/data/generator_dataset_op.cc:103] Error occurred when finalizing GeneratorDataset iterator: Cancelled: Operation was cancelled
+562/562 [==============================] - 23s 41ms/step - loss: 0.5431 - accuracy: 0.7498 - val_loss: 0.6027 - val_accuracy: 0.7264
+Epoch 25/100
+561/562 [============================>.] - ETA: 0s - loss: 0.5302 - accuracy: 0.75872020-11-10 13:00:04.075619: W tensorflow/core/kernels/data/generator_dataset_op.cc:103] Error occurred when finalizing GeneratorDataset iterator: Cancelled: Operation was cancelled
+562/562 [==============================] - 20s 35ms/step - loss: 0.5310 - accuracy: 0.7582 - val_loss: 0.6249 - val_accuracy: 0.7121
+Epoch 26/100
+561/562 [============================>.] - ETA: 0s - loss: 0.5234 - accuracy: 0.75492020-11-10 13:00:25.879874: W tensorflow/core/kernels/data/generator_dataset_op.cc:103] Error occurred when finalizing GeneratorDataset iterator: Cancelled: Operation was cancelled
+562/562 [==============================] - 22s 40ms/step - loss: 0.5232 - accuracy: 0.7549 - val_loss: 0.6197 - val_accuracy: 0.7041
+Epoch 27/100
+560/562 [============================>.] - ETA: 0s - loss: 0.5087 - accuracy: 0.76502020-11-10 13:00:45.697395: W tensorflow/core/kernels/data/generator_dataset_op.cc:103] Error occurred when finalizing GeneratorDataset iterator: Cancelled: Operation was cancelled
+562/562 [==============================] - 18s 33ms/step - loss: 0.5091 - accuracy: 0.7649 - val_loss: 0.6640 - val_accuracy: 0.6800
+Epoch 28/100
+561/562 [============================>.] - ETA: 0s - loss: 0.4947 - accuracy: 0.77872020-11-10 13:01:06.465519: W tensorflow/core/kernels/data/generator_dataset_op.cc:103] Error occurred when finalizing GeneratorDataset iterator: Cancelled: Operation was cancelled
+562/562 [==============================] - 22s 39ms/step - loss: 0.4946 - accuracy: 0.7789 - val_loss: 0.6526 - val_accuracy: 0.6800
+Epoch 29/100
+560/562 [============================>.] - ETA: 0s - loss: 0.4867 - accuracy: 0.77522020-11-10 13:01:29.655658: W tensorflow/core/kernels/data/generator_dataset_op.cc:103] Error occurred when finalizing GeneratorDataset iterator: Cancelled: Operation was cancelled
+562/562 [==============================] - 23s 41ms/step - loss: 0.4863 - accuracy: 0.7756 - val_loss: 0.5986 - val_accuracy: 0.7371
+Epoch 30/100
+561/562 [============================>.] - ETA: 0s - loss: 0.4697 - accuracy: 0.79302020-11-10 13:01:54.701687: W tensorflow/core/kernels/data/generator_dataset_op.cc:103] Error occurred when finalizing GeneratorDataset iterator: Cancelled: Operation was cancelled
+562/562 [==============================] - 26s 46ms/step - loss: 0.4694 - accuracy: 0.7930 - val_loss: 0.6636 - val_accuracy: 0.7094
+Epoch 31/100
+561/562 [============================>.] - ETA: 0s - loss: 0.4555 - accuracy: 0.80482020-11-10 13:02:16.836950: W tensorflow/core/kernels/data/generator_dataset_op.cc:103] Error occurred when finalizing GeneratorDataset iterator: Cancelled: Operation was cancelled
+562/562 [==============================] - 21s 37ms/step - loss: 0.4557 - accuracy: 0.8048 - val_loss: 0.6206 - val_accuracy: 0.7228
+Epoch 32/100
+561/562 [============================>.] - ETA: 0s - loss: 0.4415 - accuracy: 0.80302020-11-10 13:02:42.206917: W tensorflow/core/kernels/data/generator_dataset_op.cc:103] Error occurred when finalizing GeneratorDataset iterator: Cancelled: Operation was cancelled
+562/562 [==============================] - 27s 48ms/step - loss: 0.4418 - accuracy: 0.8030 - val_loss: 0.6166 - val_accuracy: 0.7157
+Epoch 33/100
+559/562 [============================>.] - ETA: 0s - loss: 0.4315 - accuracy: 0.81062020-11-10 13:03:05.767883: W tensorflow/core/kernels/data/generator_dataset_op.cc:103] Error occurred when finalizing GeneratorDataset iterator: Cancelled: Operation was cancelled
+562/562 [==============================] - 22s 40ms/step - loss: 0.4326 - accuracy: 0.8099 - val_loss: 0.7047 - val_accuracy: 0.7148
+Epoch 34/100
+561/562 [============================>.] - ETA: 0s - loss: 0.4243 - accuracy: 0.81642020-11-10 13:03:29.105168: W tensorflow/core/kernels/data/generator_dataset_op.cc:103] Error occurred when finalizing GeneratorDataset iterator: Cancelled: Operation was cancelled
+562/562 [==============================] - 25s 44ms/step - loss: 0.4245 - accuracy: 0.8163 - val_loss: 0.7130 - val_accuracy: 0.6970
+2020-11-10 13:03:34.767179: W tensorflow/core/kernels/data/generator_dataset_op.cc:103] Error occurred when finalizing GeneratorDataset iterator: Cancelled: Operation was cancelled
+2020-11-10 13:03:34.792431: W tensorflow/core/kernels/data/generator_dataset_op.cc:103] Error occurred when finalizing GeneratorDataset iterator: Cancelled: Operation was cancelled

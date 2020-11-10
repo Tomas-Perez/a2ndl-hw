@@ -3,6 +3,7 @@ import tensorflow as tf
 import numpy as np
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from classes import classes
+from datetime import datetime
 
 AUGMENT_DATA = False # @Note Worse if augmenting
 	
@@ -33,6 +34,8 @@ else:
 dataset_dir = "MaskDataset"
 
 bs = 8
+img_h = 256
+img_w = 256
 
 num_classes = len(classes)
 
@@ -127,33 +130,51 @@ metrics = ['accuracy']
 # Compile Model
 model.compile(optimizer=optimizer, loss=loss, metrics=metrics)
 
+callbacks = []
+
+exps_dir = "experiments"
+if not os.path.exists(exps_dir):
+    os.makedirs(exps_dir)
+
+now = datetime.now().strftime('%b%d_%H-%M-%S')
+
+model_name = 'MaskDetection'
+
+exp_dir = os.path.join(exps_dir, model_name + '_' + str(now))
+if not os.path.exists(exp_dir):
+    os.makedirs(exp_dir)
+
+# Model checkpoint
+# ----------------
+ckpt_dir = os.path.join(exp_dir, 'ckpts')
+if not os.path.exists(ckpt_dir):
+    os.makedirs(ckpt_dir)
+
+ckpt_callback = tf.keras.callbacks.ModelCheckpoint(filepath=os.path.join(ckpt_dir, 'cp_{epoch:02d}.ckpt'), 
+                                                   save_weights_only=True)  # False to save the model directly
+callbacks.append(ckpt_callback)
+
+# Early Stopping
+# --------------
+early_stop = True
+if early_stop:
+    es_callback = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=5)
+    callbacks.append(es_callback)
+
 model.fit(x=train_dataset,
-    epochs=10,  #### set repeat in training dataset
+    epochs=100,
     steps_per_epoch=len(train_gen),
     validation_data=validation_dataset,
-    validation_steps=len(validation_gen), 
+    validation_steps=len(validation_gen),
+    callbacks=callbacks,
 )
 
 
-''' Best so far 
-Epoch 1/10
-562/562 [==============================] - 178s 317ms/step - loss: 1.0994 - accuracy: 0.3362 - val_loss: 1.0982 - val_accuracy: 0.3387
-Epoch 2/10
-562/562 [==============================] - 177s 315ms/step - loss: 1.0982 - accuracy: 0.3417 - val_loss: 1.0974 - val_accuracy: 0.3645
-Epoch 3/10
-562/562 [==============================] - 180s 321ms/step - loss: 1.0967 - accuracy: 0.3528 - val_loss: 1.0975 - val_accuracy: 0.3512
-Epoch 4/10
-562/562 [==============================] - 181s 322ms/step - loss: 1.0946 - accuracy: 0.3691 - val_loss: 1.0976 - val_accuracy: 0.3449
-Epoch 5/10
-562/562 [==============================] - 181s 322ms/step - loss: 1.0951 - accuracy: 0.3655 - val_loss: 1.0958 - val_accuracy: 0.3645
-Epoch 6/10
-562/562 [==============================] - 182s 325ms/step - loss: 1.0926 - accuracy: 0.3713 - val_loss: 1.0938 - val_accuracy: 0.3547
-Epoch 7/10
-562/562 [==============================] - 179s 319ms/step - loss: 1.0910 - accuracy: 0.3713 - val_loss: 1.0940 - val_accuracy: 0.3770
-Epoch 8/10
-562/562 [==============================] - 180s 321ms/step - loss: 1.0876 - accuracy: 0.3911 - val_loss: 1.0837 - val_accuracy: 0.3788
-Epoch 9/10
-562/562 [==============================] - 175s 311ms/step - loss: 1.0720 - accuracy: 0.4118 - val_loss: 1.0537 - val_accuracy: 0.4733
-Epoch 10/10
-562/562 [==============================] - 167s 297ms/step - loss: 1.0337 - accuracy: 0.4675 - val_loss: 0.9951 - val_accuracy: 0.5036
-'''
+"""
+Best so far (see best.txt for full logs)
+
+Epoch 33/100
+559/562 [============================>.] - ETA: 0s - loss: 0.4315 - accuracy: 0.81062020-11-10 13:03:05.767883: W tensorflow/core/kernels/data/generator_dataset_op.cc:103] Error occurred when finalizing GeneratorDataset iterator: Cancelled: Operation was cancelled
+562/562 [==============================] - 22s 40ms/step - loss: 0.4326 - accuracy: 0.8099 - val_loss: 0.7047 - val_accuracy: 0.7148
+
+"""
