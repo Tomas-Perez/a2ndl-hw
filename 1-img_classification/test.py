@@ -3,25 +3,21 @@ import tensorflow as tf
 import numpy as np
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from classes import classes
-from sklearn.model_selection import train_test_split
-	
-SEED = 1234
 
+# Set global seed for all internal generators, this should make all randomization reproducible
+SEED = 1234
 np.random.seed(SEED)
 tf.random.set_seed(SEED)
 
-# Get current working directory
+# Single image generator, splitting the entire dataset in training and validation
 data_gen = ImageDataGenerator(rescale=1./255, validation_split=0.2)
 
 dataset_dir = "MaskDataset"
 
 bs = 8
-img_h = 256
-img_w = 256
 
 num_classes = len(classes)
 
-# Training
 training_dir = f"{dataset_dir}/training-structured"
 
 train_gen = data_gen.flow_from_directory(
