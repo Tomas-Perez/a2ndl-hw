@@ -78,8 +78,8 @@ validation_dataset = tf.data.Dataset.from_generator(
 # --------- Training ---------
 # Architecture: Features extraction -> Classifier
 
-start_f = 12 #8
-depth = 5
+start_f = 8
+depth = 6
 
 model = tf.keras.Sequential()
 
@@ -100,7 +100,6 @@ for i in range(depth):
                                      input_shape=input_shape))
     model.add(tf.keras.layers.ReLU())
     model.add(tf.keras.layers.MaxPool2D(pool_size=(2, 2)))
-
     start_f *= 2
     
 # Classifier
@@ -109,6 +108,8 @@ model.add(tf.keras.layers.Flatten())
 model.add(tf.keras.layers.Dense(units=512, activation='relu'))
 model.add(tf.keras.layers.Dense(units=num_classes, activation='softmax'))
 
+# Print model summary
+print(model.summary())
 
 # Optimization params
 # -------------------
@@ -173,8 +174,14 @@ model.fit(x=train_dataset,
 """
 Best so far (see best.txt for full logs)
 
-Epoch 33/100
-559/562 [============================>.] - ETA: 0s - loss: 0.4315 - accuracy: 0.81062020-11-10 13:03:05.767883: W tensorflow/core/kernels/data/generator_dataset_op.cc:103] Error occurred when finalizing GeneratorDataset iterator: Cancelled: Operation was cancelled
-562/562 [==============================] - 22s 40ms/step - loss: 0.4326 - accuracy: 0.8099 - val_loss: 0.7047 - val_accuracy: 0.7148
+Epoch 1/100
+562/562 [==============================] - 24s 43ms/step - loss: 1.0989 - accuracy: 0.3451 - val_loss: 1.0992 - val_accuracy: 0.3396
+Epoch 2/100
+562/562 [==============================] - 23s 42ms/step - loss: 1.0965 - accuracy: 0.3631 - val_loss: 1.0948 - val_accuracy: 0.3636
+
+Epoch 17/100
+562/562 [==============================] - 23s 41ms/step - loss: 0.3627 - accuracy: 0.8493 - val_loss: 0.7742 - val_accuracy: 0.6684
+Epoch 18/100
+562/562 [==============================] - 23s 41ms/step - loss: 0.3241 - accuracy: 0.8651 - val_loss: 0.7710 - val_accuracy: 0.6622
 
 """
