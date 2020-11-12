@@ -1,26 +1,43 @@
 import os
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
-
-import tensorflow as tf
 import numpy as np
 from PIL import Image
+from enum import Enum
 
-from csv_generator import create_csv
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+import tensorflow as tf
 
-from transfer_model import VGG_transfer_model as network_model, MODEL_NAME
-# from homebrew_model import homebrew_model as network_model, MODEL_NAME
+from utils import create_csv, get_files_in_directory
+
 from classes import classes
+
+class Model(Enum):
+    VGG = 1
+    HOMEBREW = 2
+
+MODEL_CHOICE = Model.VGG
+
+if MODEL_CHOICE == Model.VGG:
+    from transfer_model import VGG_transfer_model as network_model, MODEL_NAME
+elif MODEL_CHOICE == Model.HOMEBREW:
+    from homebrew_model import homebrew_model as network_model, MODEL_NAME
+else:
+    raise RuntimeError("No model selected")
 
 dataset_dir = "MaskDataset"
 
-checkpoint_timestamp = "Nov11_22-44-20"
+base_model_exp_dir = f'experiments/{MODEL_NAME}'
+saved_weights = [os.path.join(base_model_exp_dir, f) for f in get_files_in_directory(base_model_exp_dir, include_folders=True)]
+latest_saved_weights_path = max(saved_weights, key=os.path.getctime)
+
+latests_weights = os.path.join(latest_saved_weights_path, 'best/model')
+
 model = network_model(256, 256, len(classes))
-model.load_weights(f'experiments/{MODEL_NAME}/{checkpoint_timestamp}/best/model')
+model.load_weights(latests_weights)
 
 # for each image in test folder, calculate prediction and add to results
 
 results = {}
-image_filenames = next(os.walk(f"{dataset_dir}/test"))[2]
+image_filenames = get_files_in_directory(f"{dataset_dir}/test")
 
 # make a square image while keeping aspect ratio and filling with fill_color
 def make_square(im, min_size=256, fill_color=(0, 0, 0, 0)):
@@ -47,4 +64,4 @@ for image_name in image_filenames:
 
     results[image_name] = prediction
 
-create_csv(results)
+create_csv(results, MODEL_NAME)

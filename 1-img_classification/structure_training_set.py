@@ -5,15 +5,14 @@ from classes import classes
 from pathlib import Path
 import shutil
 
+from utils import get_files_in_directory
+
 dataset_dir = "MaskDataset"
 source_dir = f"{dataset_dir}/training"
 destination_dir = f"{dataset_dir}/training-structured"
 
 with open(f"{dataset_dir}/train_gt.json") as f:
     ground_truth = json.load(f)
-
-def get_files_in_directory(path):
-    return [f for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))]
 
 training_dirs = []
 
