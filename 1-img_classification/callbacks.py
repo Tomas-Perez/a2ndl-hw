@@ -13,7 +13,6 @@ def tensorboard(experiment_dir):
         
     return tf.keras.callbacks.TensorBoard(
         log_dir=tb_dir,
-        profile_batch=0,
         histogram_freq=1,
     )
 
