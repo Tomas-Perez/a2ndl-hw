@@ -27,16 +27,23 @@ elif MODEL_CHOICE == Model.HOMEBREW:
 else:
     raise RuntimeError("No model selected")
 
+#either use latest or provide path to model below
+USE_LATEST = True
+
 dataset_dir = "MaskDataset"
 
-base_model_exp_dir = f'experiments/{MODEL_NAME}'
-saved_weights = [os.path.join(base_model_exp_dir, f) for f in get_files_in_directory(base_model_exp_dir, include_folders=True)]
-latest_saved_weights_path = max(saved_weights, key=os.path.getctime)
+if(USE_LATEST):
+    base_model_exp_dir = f'experiments/{MODEL_NAME}'
+    saved_weights = [os.path.join(base_model_exp_dir, f) for f in get_files_in_directory(base_model_exp_dir, include_folders=True)]
+    latest_saved_weights_path = max(saved_weights, key=os.path.getctime)
+    weights = os.path.join(latest_saved_weights_path, 'best/model')
+else:
+    weights = 'experiments/MaskDetection-Transfer/Nov18_05-28-22/best/model'
 
-latests_weights = os.path.join(latest_saved_weights_path, 'best/model')
 
+print(f"Loading weights from model: {weights}...")
 model = network_model(256, 256, len(classes))
-model.load_weights(latests_weights)
+model.load_weights(weights)
 
 # for each image in test folder, calculate prediction and add to results
 
