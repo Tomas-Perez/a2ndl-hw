@@ -7,6 +7,14 @@ import shutil
 
 from utils import get_files_in_directory
 
+"""
+Construct folder structure with a folder for each image class
+traning-structured/
+    - all/
+    - nobody/
+    - some/
+"""
+
 dataset_dir = "MaskDataset"
 source_dir = f"{dataset_dir}/training"
 destination_dir = f"{dataset_dir}/training-structured"

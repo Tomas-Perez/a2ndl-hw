@@ -8,9 +8,12 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2' # set TF logging to ERROR, needs to be 
 import tensorflow as tf
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 
-# local imports
 from classes import classes
 import callbacks
+
+"""
+Model based on VGG with imagenet weights, used for transfer learning and finetuning.
+"""
 
 MODEL_NAME = 'MaskDetection-Transfer'
 
@@ -53,7 +56,7 @@ if __name__ == "__main__":
         
     # Set global seed for all internal generators, this should make all randomization reproducible
     import signal
-    SEED = signal.SIGSEGV.value
+    SEED = signal.SIGSEGV.value # Set SEED to SEG_FAULT code (11)
     set_seeds(SEED)
 
     preprocess_input = tf.keras.applications.vgg16.preprocess_input
@@ -91,8 +94,6 @@ if __name__ == "__main__":
     dataset_dir = "MaskDataset"
 
     bs = 8
-    img_h = 256
-    img_w = 256
 
     num_classes = len(classes)
 

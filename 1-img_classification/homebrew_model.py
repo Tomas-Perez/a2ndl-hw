@@ -7,9 +7,12 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2' # set TF logging to ERROR, needs to be 
 import tensorflow as tf
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 
-# local imports
 from classes import classes
 import callbacks
+
+"""
+Custom model based on the one seen on the laboratory classes.
+"""
 
 MODEL_NAME = "MaskDetection-Homebrew"
 
@@ -30,8 +33,6 @@ def homebrew_model(img_h, img_w, num_classes):
         else:
             input_shape=[None]
 
-        # Conv block: Conv2D -> Activation -> Pooling
-        # @Note tried different initializers, default is working best so far
         model.add(tf.keras.layers.Conv2D(
             filters=start_f, 
             kernel_size=(3, 3),
@@ -57,7 +58,7 @@ def set_seeds(seed):
     random.seed(seed)
 
 if __name__ == "__main__":
-    AUGMENT_DATA = True # @Note Worse if augmenting
+    AUGMENT_DATA = True
     CHECKPOINTS = False
     EARLY_STOP = True
     TENSORBOARD = False
@@ -66,7 +67,7 @@ if __name__ == "__main__":
 
     # Set global seed for all internal generators, this should make all randomization reproducible
     import signal
-    SEED = signal.SIGSEGV.value
+    SEED = signal.SIGSEGV.value # Set SEED to SEG_FAULT code (11)
     set_seeds(SEED)
 
     # Data generator
@@ -141,7 +142,7 @@ if __name__ == "__main__":
     loss = tf.keras.losses.CategoricalCrossentropy()
 
     # learning rate
-    lr = 1e-4 # @Note tried different ones, this one is the best
+    lr = 1e-4 
     optimizer = tf.keras.optimizers.Adam(learning_rate=lr)
     # -------------------
 

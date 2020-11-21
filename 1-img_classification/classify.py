@@ -10,6 +10,10 @@ from utils import create_csv, get_files_in_directory
 
 from classes import classes
 
+"""
+Generate csv for submission with the last model trained for the chosen architecture (MODEL_CHOICE).
+"""
+
 class Model(Enum):
     VGG = 1
     HOMEBREW = 2
