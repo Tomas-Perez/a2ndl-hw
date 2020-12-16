@@ -13,11 +13,9 @@ from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from classes import classes
 import callbacks
 
-'''
-How to visualize Tensorboard:
-1. tensorboard --logdir EXPERIMENTS_DIR --port PORT
-2. localhost:PORT  <-- in browser
-'''
+"""
+Experiment by performing finetuning in a progressive way, iteratively decreasing the number of layers to freeze.
+"""
 
 MODEL_NAME = 'MaskDetection-Transfer'
 
@@ -35,23 +33,11 @@ def VGG_transfer_model(img_h, img_w, num_classes, finetuning=True, freeze_until=
         else:
             vgg.trainable = False
 
-    #print(vgg.summary())
-
     model = tf.keras.Sequential()
     model.add(vgg)
     model.add(tf.keras.layers.Flatten())
     model.add(tf.keras.layers.Dense(units=512, activation='relu'))
     model.add(tf.keras.layers.Dropout(0.1))
-
-    '''
-    model.add(tf.keras.layers.Dense(units=1024, activation='relu'))
-    model.add(tf.keras.layers.Dropout(0.1))
-    model.add(tf.keras.layers.Dense(units=512, activation='relu'))
-    model.add(tf.keras.layers.Dropout(0.1))
-    model.add(tf.keras.layers.Dense(units=256, activation='relu'))
-    model.add(tf.keras.layers.Dropout(0.1))
-    model.add(tf.keras.layers.Dense(units=128, activation='relu'))
-    '''
 
     model.add(tf.keras.layers.Dense(units=num_classes, activation='softmax'))
 
@@ -65,7 +51,6 @@ def set_seeds(seed):
 if __name__ == "__main__":
 
     LOAD_WEIGHTS = True
-    #weights_dir = 'experiments/MaskDetection-Transfer/Nov18_10-34-33/best/model'
     AUGMENT_DATA = True
     CHECKPOINTS = False
     EARLY_STOP = True
@@ -178,7 +163,6 @@ if __name__ == "__main__":
             os.makedirs(model_dir)
 
         # load best model from previous fine tuning stage
-        #if i != 0:
         saved_weights = [os.path.join(model_dir, f) for f in get_files_in_directory(model_dir, include_folders=True)]
         latest_saved_weights_path = max(saved_weights, key=os.path.getctime)
         weights_dir = os.path.join(latest_saved_weights_path, 'best/model')
@@ -189,18 +173,11 @@ if __name__ == "__main__":
         if not os.path.exists(exp_dir):
             os.makedirs(exp_dir)
 
-        if TENSORBOARD:
-            tb_dir = "./tb_logs"
-            if not os.path.exists(tb_dir):
-                os.makedirs(tb_dir)
-            print(f"Tensorboard logs at: {tb_dir}")
-
         callbacks_list = []
 
         # Model checkpoint
         if CHECKPOINTS:
             callbacks_list.append(callbacks.checkpoints(exp_dir))
-            #callbacks_list.append(tf.keras.callbacks.ModelCheckpoint(filepath=exp_dir, save_weights_only=True, monitor='val_accuracy', mode='max'))
 
         # Early stopping
         if EARLY_STOP:
@@ -208,7 +185,7 @@ if __name__ == "__main__":
 
         # Tensorboard
         if TENSORBOARD:
-            callbacks_list.append(tf.keras.callbacks.TensorBoard(log_dir=tb_dir, histogram_freq=1)) # show histograms
+            callbacks_list.append(callbacks.tensorboard(exp_dir))
 
         # Save best model
         # ----------------
