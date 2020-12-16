@@ -6,6 +6,7 @@ from PIL import Image
 from tensorflow.keras.applications.vgg16 import preprocess_input 
 
 import time
+from datetime import datetime
 import matplotlib.pyplot as plt
 
 MODEL_NAME = 'Segmentation-transfer'
@@ -21,26 +22,28 @@ dataset_dir = "SegmentationDataset"
 
 # ---- ImageDataGenerator ----
 
-apply_data_augmentation = True
+TENSORBOARD = False
 
 # Create training ImageDataGenerator object
 # We need two different generators for images and corresponding masks
-if apply_data_augmentation:
-    img_data_gen = ImageDataGenerator(rotation_range=10,
-                                      width_shift_range=10,
-                                      height_shift_range=10,
-                                      zoom_range=0.3,
-                                      horizontal_flip=True,
-                                      vertical_flip=True,
-                                      fill_mode='reflect')
-    mask_data_gen = ImageDataGenerator(rotation_range=10,
-                                       width_shift_range=10,
-                                       height_shift_range=10,
-                                       zoom_range=0.3,
-                                       horizontal_flip=True,
-                                       vertical_flip=True,
-                                       fill_mode='reflect')
 
+img_data_gen = ImageDataGenerator(rotation_range=10,
+    width_shift_range=10,
+    height_shift_range=10,
+    zoom_range=0.3,
+    horizontal_flip=True,
+    vertical_flip=True,
+    fill_mode='reflect'
+)
+
+mask_data_gen = ImageDataGenerator(rotation_range=10,
+    width_shift_range=10,
+    height_shift_range=10,
+    zoom_range=0.3,
+    horizontal_flip=True,
+    vertical_flip=True,
+    fill_mode='reflect'
+)
 
 class CustomDataset(tf.keras.utils.Sequence):
   """
@@ -134,10 +137,9 @@ class CustomDataset(tf.keras.utils.Sequence):
 
     return img_arr, np.float32(out_mask)
 
-
-
 img_h = 256
 img_w = 256
+bs = 8
 
 dataset = CustomDataset(dataset_dir, 'training', 
                         img_generator=img_data_gen, mask_generator=mask_data_gen,
@@ -148,54 +150,19 @@ dataset_valid = CustomDataset(dataset_dir, 'validation',
 train_dataset = tf.data.Dataset.from_generator(lambda: dataset,
         output_types=(tf.float32, tf.float32),
         output_shapes=([img_h, img_w, 3], [img_h, img_w, 1]))
-train_dataset = train_dataset.batch(32)
+train_dataset = train_dataset.batch(bs)
 train_dataset = train_dataset.repeat()
 
 valid_dataset = tf.data.Dataset.from_generator(lambda: dataset_valid,
         output_types=(tf.float32, tf.float32),
         output_shapes=([img_h, img_w, 3], [img_h, img_w, 1]))
-valid_dataset = valid_dataset.batch(32)
+valid_dataset = valid_dataset.batch(bs)
 valid_dataset = valid_dataset.repeat()
-
-
-# ---- Data generator test ----
-'''
-from matplotlib import cm
-
-%matplotlib inline
-
-# Assign a color to each class
-evenly_spaced_interval = np.linspace(0, 1, 20)
-colors = [cm.rainbow(x) for x in evenly_spaced_interval]
-
-iterator = iter(valid_dataset)
-
-fig, ax = plt.subplots(1, 2)
-
-augmented_img, target = next(iterator)
-augmented_img = augmented_img[0]   # First element
-augmented_img = augmented_img  # denormalize
-
-target = np.array(target[0, ..., 0])   # First element (squeezing channel dimension)
-
-print(np.unique(target))
-
-target_img = np.zeros([target.shape[0], target.shape[1], 3])
-
-target_img[np.where(target == 0)] = [0, 0, 0]
-for i in range(1, 21):
-  target_img[np.where(target == i)] = np.array(colors[i-1])[:3] * 255
-
-ax[0].imshow(np.uint8(augmented_img))
-ax[1].imshow(np.uint8(target_img))
-
-plt.show()
-'''
 
 # ---- Model ----
 
 vgg = tf.keras.applications.VGG16(weights='imagenet', include_top=False, input_shape=(img_h, img_w, 3))
-#print(vgg.summary())
+
 for layer in vgg.layers:
   layer.trainable = False
 
@@ -228,10 +195,6 @@ def create_model(depth, start_f, num_classes):
     return model
 
 model = create_model(depth=5, start_f=8, num_classes=21)
-
-#print(model.summary())
-#print(model.weights)
-
 
 # Loss
 # Sparse Categorical Crossentropy to use integers (mask) instead of one-hot encoded labels
@@ -304,14 +267,13 @@ if early_stop:
     es_callback = tf.keras.callback.EarlyStopping(monitor='val_loss', patience=10)
     callbacks.append(es_callback)
 
-
-
 model.fit(x=train_dataset,
-          epochs=100,
-          steps_per_epoch=len(dataset),
-          validation_data=valid_dataset,
-          validation_steps=len(dataset_valid), 
-          callbacks=callbacks)
+    epochs=100,
+    steps_per_epoch=len(dataset),
+    validation_data=valid_dataset,
+    validation_steps=len(dataset_valid), 
+    callbacks=callbacks
+)
 
 
 
