@@ -1,55 +1,23 @@
 import os
-import tensorflow as tf
-from tensorflow.keras.preprocessing.image import ImageDataGenerator
 import numpy as np
 from PIL import Image
-from tensorflow.keras.applications.vgg16 import preprocess_input 
-
-import time
+import random
 from datetime import datetime
 import matplotlib.pyplot as plt
-from dataset_types import Subdataset, Species
+from matplotlib import cm
 
-from mask_colors import BACKGROUND_1, BACKGROUND_0
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2' # set TF logging to ERROR, needs to be done before importing TF
+import tensorflow as tf
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from tensorflow.keras.applications.vgg16 import preprocess_input 
+
+import callbacks
+from dataset_types import Subdataset, Species
+from mask_colors import BACKGROUND_1, BACKGROUND_0, WEED, CROP
+from plot_predictions import plot_predictions
+from metrics import gen_meanIoU
 
 MODEL_NAME = 'Segmentation-transfer'
-
-# Set the seed for random operations. 
-# This let our experiments to be reproducible. 
-SEED = 9999
-tf.random.set_seed(SEED) 
-
-# Training and validation datasets
-dasaset_base = "Development_Dataset/Training"
-subdataset = Subdataset.BIPBIP.value
-species = Species.HARICOT.value
-dataset_dir = os.path.join(dasaset_base, subdataset, species)
-
-# ---- ImageDataGenerator ----
-
-TENSORBOARD = False
-
-# Create training ImageDataGenerator object
-# We need two different generators for images and corresponding masks
-
-img_data_gen = ImageDataGenerator(rotation_range=10,
-    width_shift_range=10,
-    height_shift_range=10,
-    zoom_range=0.3,
-    horizontal_flip=True,
-    vertical_flip=True,
-    fill_mode='reflect'
-)
-
-mask_data_gen = ImageDataGenerator(
-    rotation_range=10,
-    width_shift_range=10,
-    height_shift_range=10,
-    zoom_range=0.3,
-    horizontal_flip=True,
-    vertical_flip=True,
-    fill_mode='reflect'
-)
 
 class CustomDataset(tf.keras.utils.Sequence):
   """
@@ -71,16 +39,16 @@ class CustomDataset(tf.keras.utils.Sequence):
   def __init__(self, dataset_dir, which_subset, img_generator=None, mask_generator=None, 
                preprocessing_function=None, out_shape=[256, 256]):
     if which_subset == 'training':
-      subset_file = os.path.join(dataset_dir, 'Splits', 'train.txt')
+        subset_file = os.path.join(dataset_dir, 'Splits', 'train.txt')
     elif which_subset == 'validation':
-      subset_file = os.path.join(dataset_dir, 'Splits', 'val.txt')
+        subset_file = os.path.join(dataset_dir, 'Splits', 'val.txt')
     
     with open(subset_file, 'r') as f:
-      lines = f.readlines()
+        lines = f.readlines()
     
     subset_filenames = []
     for line in lines:
-      subset_filenames.append(line.strip()) 
+        subset_filenames.append(line.strip()) 
 
     self.which_subset = which_subset
     self.dataset_dir = dataset_dir
@@ -106,14 +74,14 @@ class CustomDataset(tf.keras.utils.Sequence):
     img_arr = np.array(img)
     mask_arr = np.array(mask)
 
-    r1, g1, b1 = BACKGROUND_1 # Original value
-    r2, g2, b2 = BACKGROUND_0 # Value that we want to replace it with
+    # Convert RGB mask for each class to numbers from 0 to 2
+    new_mask_arr = np.zeros(mask_arr.shape[:2], dtype=mask_arr.dtype)
+    new_mask_arr = np.expand_dims(new_mask_arr, -1)
 
-    red, green, blue = mask_arr[:,:,0], mask_arr[:,:,1], mask_arr[:,:,2]
-    color_mask = (red == r1) & (green == g1) & (blue == b1)
-    mask_arr[:,:,:3][color_mask] = [r2, g2, b2]
-    
-    mask_arr = np.expand_dims(mask_arr, -1)
+    new_mask_arr[np.where(np.all(mask_arr == BACKGROUND_0, axis=-1))] = 0
+    new_mask_arr[np.where(np.all(mask_arr == BACKGROUND_1, axis=-1))] = 0
+    new_mask_arr[np.where(np.all(mask_arr == CROP, axis=-1))] = 1
+    new_mask_arr[np.where(np.all(mask_arr == WEED, axis=-1))] = 2
 
     if self.which_subset == 'training':
       if self.img_generator is not None and self.mask_generator is not None:
@@ -128,10 +96,10 @@ class CustomDataset(tf.keras.utils.Sequence):
         # is an unwanted behaviour. As a trick, we can transform each class mask 
         # separately and then we can cast to integer values (as in the binary segmentation notebook).
         # Finally, we merge the augmented binary masks to obtain the final segmentation mask.
-        out_mask = np.zeros_like(mask_arr)
-        for c in np.unique(mask_arr):
+        out_mask = np.zeros_like(new_mask_arr)
+        for c in np.unique(new_mask_arr):
           if c > 0:
-            curr_class_arr = np.float32(mask_arr == c)
+            curr_class_arr = np.float32(new_mask_arr == c)
             curr_class_arr = self.mask_generator.apply_transform(curr_class_arr, mask_t)
             # from [0, 1] to {0, 1}
             curr_class_arr = np.uint8(curr_class_arr)
@@ -139,43 +107,20 @@ class CustomDataset(tf.keras.utils.Sequence):
             curr_class_arr = curr_class_arr * c 
             out_mask += curr_class_arr
     else:
-      out_mask = mask_arr
+      out_mask = new_mask_arr
     
     if self.preprocessing_function is not None:
         img_arr = self.preprocessing_function(img_arr)
 
     return img_arr, np.float32(out_mask)
 
-img_h = 256
-img_w = 256
-bs = 8
-
-dataset = CustomDataset(dataset_dir, 'training', 
-                        img_generator=img_data_gen, mask_generator=mask_data_gen,
-                        preprocessing_function=preprocess_input)
-dataset_valid = CustomDataset(dataset_dir, 'validation', 
-                              preprocessing_function=preprocess_input)
-
-train_dataset = tf.data.Dataset.from_generator(lambda: dataset,
-        output_types=(tf.float32, tf.float32),
-        output_shapes=([img_h, img_w, 3], [img_h, img_w, 1]))
-train_dataset = train_dataset.batch(bs)
-train_dataset = train_dataset.repeat()
-
-valid_dataset = tf.data.Dataset.from_generator(lambda: dataset_valid,
-        output_types=(tf.float32, tf.float32),
-        output_shapes=([img_h, img_w, 3], [img_h, img_w, 1]))
-valid_dataset = valid_dataset.batch(bs)
-valid_dataset = valid_dataset.repeat()
-
 # ---- Model ----
+def create_model(depth, num_classes):
+    vgg = tf.keras.applications.VGG16(weights='imagenet', include_top=False, input_shape=(img_h, img_w, 3))
 
-vgg = tf.keras.applications.VGG16(weights='imagenet', include_top=False, input_shape=(img_h, img_w, 3))
+    for layer in vgg.layers:
+        layer.trainable = False
 
-for layer in vgg.layers:
-  layer.trainable = False
-
-def create_model(depth, start_f, num_classes):
     model = tf.keras.Sequential()
     
     # Encoder
@@ -203,129 +148,151 @@ def create_model(depth, start_f, num_classes):
     
     return model
 
-num_classes = 3
+def set_seeds(seed):
+    tf.random.set_seed(seed)
+    np.random.seed(seed)
+    random.seed(seed)
 
-model = create_model(depth=5, start_f=8, num_classes=num_classes)
+if __name__ == "__main__":
+    # Set global seed for all internal generators, this should make all randomization reproducible
+    import signal
+    SEED = signal.SIGSEGV.value # Set SEED to SEG_FAULT code (11)
+    set_seeds(SEED)
 
-# Loss
-# Sparse Categorical Crossentropy to use integers (mask) instead of one-hot encoded labels
-loss = tf.keras.losses.SparseCategoricalCrossentropy() 
+    dasaset_base = "Development_Dataset/Training"
 
-# learning rate
-lr = 1e-3
-optimizer = tf.keras.optimizers.Adam(learning_rate=lr)
+    TENSORBOARD = False
+    CHECKPOINTS = False
+    SAVE_BEST = True
+    EARLY_STOP = True
+    TRAIN_ALL = True
 
-# Intersection over union for each class in the batch.
-# Then compute the final iou as the mean over classes
-def meanIoU(y_true, y_pred):
-    # get predicted class from softmax
-    y_pred = tf.expand_dims(tf.argmax(y_pred, -1), -1)
+    if TRAIN_ALL:
+        PLOT = False
+    else: 
+        subdataset = Subdataset.BIPBIP.value
+        species = Species.HARICOT.value 
+        PLOT = True
 
-    per_class_iou = []
+    img_h = 256
+    img_w = 256
 
-    for i in range(1, num_classes): # exclude the background class 0
-        # Get prediction and target related to only a single class (i)
-        class_pred = tf.cast(tf.where(y_pred == i, 1, 0), tf.float32)
-        class_true = tf.cast(tf.where(y_true == i, 1, 0), tf.float32)
-        intersection = tf.reduce_sum(class_true * class_pred)
-        union = tf.reduce_sum(class_true) + tf.reduce_sum(class_pred) - intersection
+    # Hyper parameters
+    bs = 8
+    lr = 1e-3
+    depth = 5
+    epochs = 1
 
-        iou = (intersection + 1e-7) / (union + 1e-7)
-        per_class_iou.append(iou)
+    # ---- ImageDataGenerator ----
+    # Create training ImageDataGenerator object
+    # We need two different generators for images and corresponding masks
+    img_data_gen = ImageDataGenerator(rotation_range=10,
+        width_shift_range=10,
+        height_shift_range=10,
+        zoom_range=0.3,
+        horizontal_flip=True,
+        vertical_flip=True,
+        fill_mode='reflect'
+    )
 
-    return tf.reduce_mean(per_class_iou)
+    mask_data_gen = ImageDataGenerator(
+        rotation_range=10,
+        width_shift_range=10,
+        height_shift_range=10,
+        zoom_range=0.3,
+        horizontal_flip=True,
+        vertical_flip=True,
+        fill_mode='reflect'
+    )
 
-# Validation metrics
-metrics = ['accuracy', meanIoU]
+    now = datetime.now().strftime('%b%d_%H-%M-%S')
 
-# Compile Model
-model.compile(optimizer=optimizer, loss=loss, metrics=metrics)
+    def train_model(subdataset, species):
+        dataset_dir = os.path.join(dasaset_base, subdataset, species)
 
+        dataset = CustomDataset(
+            dataset_dir, 'training', 
+            img_generator=img_data_gen, mask_generator=mask_data_gen,
+            preprocessing_function=preprocess_input
+        )
+        dataset_valid = CustomDataset(
+            dataset_dir, 'validation', 
+            preprocessing_function=preprocess_input
+        )
 
-# ---- Callbacks ----
-callbacks = []
+        train_dataset = tf.data.Dataset.from_generator(
+            lambda: dataset,
+            output_types=(tf.float32, tf.float32),
+            output_shapes=([img_h, img_w, 3], [img_h, img_w, 1])
+        ).batch(bs).repeat()
 
-exps_dir = "experiments"
-if not os.path.exists(exps_dir):
-    os.makedirs(exps_dir)
+        valid_dataset = tf.data.Dataset.from_generator(
+            lambda: dataset_valid,
+            output_types=(tf.float32, tf.float32),
+            output_shapes=([img_h, img_w, 3], [img_h, img_w, 1])
+        ).batch(bs).repeat()
 
-now = datetime.now().strftime('%b%d_%H-%M-%S')
+        num_classes = 3
+        model = create_model(depth=depth, num_classes=num_classes)
 
-exp_dir = os.path.join(exps_dir, MODEL_NAME + '_' + str(now))
-if not os.path.exists(exp_dir):
-    os.makedirs(exp_dir)
-    
-# Model checkpoint
-ckpt_dir = os.path.join(exp_dir, 'ckpts')
-if not os.path.exists(ckpt_dir):
-    os.makedirs(ckpt_dir)
+        # Loss
+        # Sparse Categorical Crossentropy to use integers (mask) instead of one-hot encoded labels
+        loss = tf.keras.losses.SparseCategoricalCrossentropy() 
 
-ckpt_callback = tf.keras.callbacks.ModelCheckpoint(filepath=os.path.join(ckpt_dir, 'cp_{epoch:02d}.ckpt'), 
-                                                   save_weights_only=True)  # False to save the model directly
-callbacks.append(ckpt_callback)
+        # learning rate
+        optimizer = tf.keras.optimizers.Adam(learning_rate=lr)
 
-# Tensorboard
-if TENSORBOARD:
-    tb_dir = os.path.join(exp_dir, 'tb_logs')
-    if not os.path.exists(tb_dir):
-        os.makedirs(tb_dir)
-    print(f"Tensorboard logs at: {tb_dir}")
-    callbacks.append(tf.keras.callbacks.TensorBoard(log_dir=tb_dir, profile_batch=0, histogram_freq=0))  # if 1 shows weights histograms
+        # Validation metrics
+        metrics = ['accuracy', gen_meanIoU(num_classes)]
 
-# Early Stopping
-early_stop = False
-if early_stop:
-    es_callback = tf.keras.callback.EarlyStopping(monitor='val_loss', patience=10)
-    callbacks.append(es_callback)
+        # Compile Model
+        model.compile(optimizer=optimizer, loss=loss, metrics=metrics)
 
-model.fit(x=train_dataset,
-    epochs=100,
-    steps_per_epoch=len(dataset),
-    validation_data=valid_dataset,
-    validation_steps=len(dataset_valid), 
-    callbacks=callbacks
-)
+        # ---- Callbacks ----
+        exps_dir = "experiments"
+        if not os.path.exists(exps_dir):
+            os.makedirs(exps_dir)
 
+        model_dir = os.path.join(exps_dir, MODEL_NAME)
+        if not os.path.exists(model_dir):
+            os.makedirs(model_dir)
 
+        exp_dir = os.path.join(model_dir, str(now), subdataset, species)
+        if not os.path.exists(exp_dir):
+            os.makedirs(exp_dir)
 
-# ---- Prediction ----
-iterator = iter(valid_dataset)
+        callbacks_list = []
 
-fig, ax = plt.subplots(1, 3, figsize=(8, 8))
-fig.show()
-image, target = next(iterator)
+        # Model checkpoint
+        if CHECKPOINTS:
+            callbacks_list.append(callbacks.checkpoints(exp_dir))
 
-image = image[0]
-target = target[0, ..., 0]
+        # Early stopping
+        if EARLY_STOP:
+            callbacks_list.append(callbacks.early_stopping(patience=10))
 
-out_sigmoid = model.predict(x=tf.expand_dims(image, 0))
-
-# Get predicted class as the index corresponding to the maximum value in the vector probability
-# predicted_class = tf.cast(out_sigmoid > score_th, tf.int32)
-# predicted_class = predicted_class[0, ..., 0]
-predicted_class = tf.argmax(out_sigmoid, -1)
-
-out_sigmoid.shape
-
-predicted_class = predicted_class[0, ...]
-
-# Assign colors (just for visualization)
-target_img = np.zeros([target.shape[0], target.shape[1], 3])
-prediction_img = np.zeros([target.shape[0], target.shape[1], 3])
-
-target_img[np.where(target == 0)] = [0, 0, 0]
-for i in range(1, num_classes):
-  target_img[np.where(target == i)] = np.array(colors[i-1])[:3] * 255
-
-prediction_img[np.where(predicted_class == 0)] = [0, 0, 0]
-for i in range(1, num_classes):
-  prediction_img[np.where(predicted_class == i)] = np.array(colors[i-1])[:3] * 255
-
-ax[0].imshow(np.uint8(image))
-ax[1].imshow(np.uint8(target_img))
-ax[2].imshow(np.uint8(prediction_img))
-
-fig.canvas.draw()
-time.sleep(1)
+        # Save best model
+        # ----------------
+        if SAVE_BEST:
+            callbacks_list.append(callbacks.save_best(exp_dir))
 
 
+        model.fit(x=train_dataset,
+            epochs=epochs,
+            steps_per_epoch=len(dataset),
+            validation_data=valid_dataset,
+            validation_steps=len(dataset_valid), 
+            callbacks=callbacks_list
+        )
+
+        if PLOT:
+            # ---- Prediction ----
+            plot_predictions(model, valid_dataset, num_classes)
+
+    if TRAIN_ALL:
+        for subdataset in Subdataset:
+            for species in Species:
+                # Training and validation datasets
+                train_model(subdataset.value, species.value)
+    else:
+        train_model(subdataset.value, species.value)
