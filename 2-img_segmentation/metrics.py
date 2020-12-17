@@ -22,4 +22,4 @@ def gen_meanIoU(num_classes):
 
         return tf.reduce_mean(per_class_iou)
 
-    return meanIoU_internal
+    return meanIoU

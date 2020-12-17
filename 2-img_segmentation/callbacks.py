@@ -24,25 +24,25 @@ def early_stopping(patience):
         restore_best_weights=True,
     )
 
-def checkpoints(experiment_dir):
+def checkpoints(experiment_dir, now_string):
     """Enable checkpoints for each epoch"""
     ckpt_dir = os.path.join(experiment_dir, 'ckpts')
     if not os.path.exists(ckpt_dir):
         os.makedirs(ckpt_dir)
 
     return tf.keras.callbacks.ModelCheckpoint(
-        filepath=os.path.join(ckpt_dir, 'cp_{epoch:02d}.ckpt'), 
+        filepath=os.path.join(ckpt_dir, 'cp_{epoch:02d}_' + f'{now_string}.ckpt'), 
         save_weights_only=True,
     )
 
-def save_best(experiment_dir):
+def save_best(experiment_dir, now_string):
     """Enable best model checkpoint which is overwritten when a new best model is found (min validation loss)."""
     best_dir = os.path.join(experiment_dir, 'best')
     if not os.path.exists(best_dir):
         os.makedirs(best_dir)
 
     return tf.keras.callbacks.ModelCheckpoint(
-        filepath=os.path.join(best_dir, 'model'), 
+        filepath=os.path.join(best_dir, f'model_{now_string}'), 
         save_best_only=True,
         save_weights_only=True,
         monitor='val_loss',

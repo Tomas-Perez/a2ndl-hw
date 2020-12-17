@@ -257,7 +257,7 @@ if __name__ == "__main__":
         if not os.path.exists(model_dir):
             os.makedirs(model_dir)
 
-        exp_dir = os.path.join(model_dir, str(now), subdataset, species)
+        exp_dir = os.path.join(model_dir, subdataset, species)
         if not os.path.exists(exp_dir):
             os.makedirs(exp_dir)
 
@@ -265,7 +265,7 @@ if __name__ == "__main__":
 
         # Model checkpoint
         if CHECKPOINTS:
-            callbacks_list.append(callbacks.checkpoints(exp_dir))
+            callbacks_list.append(callbacks.checkpoints(exp_dir, now))
 
         # Early stopping
         if EARLY_STOP:
@@ -274,7 +274,7 @@ if __name__ == "__main__":
         # Save best model
         # ----------------
         if SAVE_BEST:
-            callbacks_list.append(callbacks.save_best(exp_dir))
+            callbacks_list.append(callbacks.save_best(exp_dir, now))
 
 
         model.fit(x=train_dataset,
