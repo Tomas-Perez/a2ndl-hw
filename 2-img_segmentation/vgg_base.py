@@ -116,38 +116,53 @@ class CustomDataset(tf.keras.utils.Sequence):
         return img_arr, np.float32(out_mask)
 
 # ---- Model ----
-def create_model(depth, num_classes):
+def create_model(num_classes):
     vgg = tf.keras.applications.VGG16(weights='imagenet', include_top=False, input_shape=(img_h, img_w, 3))
 
     for layer in vgg.layers:
         layer.trainable = False
 
-    model = tf.keras.Sequential()
-    
+
     # Encoder
-    model.add(vgg)
+    x = vgg.output
+
+    skips = [
+        vgg.get_layer('block1_pool'),
+        vgg.get_layer('block2_pool'),
+        vgg.get_layer('block3_pool'),
+        vgg.get_layer('block4_pool'),
+    ]
     
-    start_f = 256
+    start_f = 512
         
+    depth = 5
+
     # Decoder
     for i in range(depth):
-        model.add(tf.keras.layers.UpSampling2D(2, interpolation='bilinear'))
-        model.add(tf.keras.layers.Conv2D(filters=start_f,
-                                         kernel_size=(3, 3),
-                                         strides=(1, 1),
-                                         padding='same'))
-        model.add(tf.keras.layers.ReLU())
+        # x = tf.keras.layers.UpSampling2D(2, interpolation='bilinear')(x)
+        x = tf.keras.layers.Conv2DTranspose(
+            filters=start_f,
+            kernel_size=(3, 3),
+            strides=(2, 2),
+            padding='same'
+        )(x)
+        skip_index = len(skips) - i - 1
+        if skip_index >= 0:
+            x = tf.keras.layers.Add()([x, skips[skip_index].output])
+        x = tf.keras.layers.ReLU()(x)
 
         start_f = start_f // 2
 
     # Prediction Layer
-    model.add(tf.keras.layers.Conv2D(filters=num_classes,
-                                     kernel_size=(1, 1),
-                                     strides=(1, 1),
-                                     padding='same',
-                                     activation='softmax'))
+    x = tf.keras.layers.Conv2D(
+        filters=num_classes,
+        kernel_size=(1, 1),
+        strides=(1, 1),
+        padding='same',
+        activation='softmax'
+    )(x)
     
-    return model
+    return tf.keras.Model(inputs = vgg.input, outputs = x)
 
 def set_seeds(seed):
     tf.random.set_seed(seed)
@@ -179,15 +194,15 @@ if __name__ == "__main__":
     img_w = 256
 
     # Hyper parameters
-    bs = 8
-    lr = 1e-3
-    depth = 5
-    epochs = 1
+    bs = 16
+    lr = 1e-4
+    epochs = 100
 
     # ---- ImageDataGenerator ----
     # Create training ImageDataGenerator object
     # We need two different generators for images and corresponding masks
-    img_data_gen = ImageDataGenerator(rotation_range=10,
+    img_data_gen = ImageDataGenerator(
+        rotation_range=10,
         width_shift_range=10,
         height_shift_range=10,
         zoom_range=0.3,
@@ -234,7 +249,9 @@ if __name__ == "__main__":
         ).batch(bs).repeat()
 
         num_classes = 3
-        model = create_model(depth=depth, num_classes=num_classes)
+        model = create_model(num_classes=num_classes)
+
+        model.summary()
 
         # Loss
         # Sparse Categorical Crossentropy to use integers (mask) instead of one-hot encoded labels
@@ -278,7 +295,8 @@ if __name__ == "__main__":
             callbacks_list.append(callbacks.save_best(exp_dir, now))
 
 
-        model.fit(x=train_dataset,
+        model.fit(
+            x=train_dataset,
             epochs=epochs,
             steps_per_epoch=len(dataset),
             validation_data=valid_dataset,
