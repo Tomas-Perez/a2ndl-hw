@@ -84,29 +84,28 @@ class CustomDataset(tf.keras.utils.Sequence):
         new_mask_arr[np.where(np.all(mask_arr == CROP, axis=-1))] = 1
         new_mask_arr[np.where(np.all(mask_arr == WEED, axis=-1))] = 2
 
-        if self.which_subset == 'training':
-            if self.img_generator is not None and self.mask_generator is not None:
-                # Perform data augmentation
-                # We can get a random transformation from the ImageDataGenerator using get_random_transform
-                # and we can apply it to the image using apply_transform
-                img_t = self.img_generator.get_random_transform(img_arr.shape, seed=SEED)
-                mask_t = self.mask_generator.get_random_transform(mask_arr.shape, seed=SEED)
-                img_arr = self.img_generator.apply_transform(img_arr, img_t)
-                # ImageDataGenerator use bilinear interpolation for augmenting the images.
-                # Thus, when applied to the masks it will output 'interpolated classes', which
-                # is an unwanted behaviour. As a trick, we can transform each class mask 
-                # separately and then we can cast to integer values (as in the binary segmentation notebook).
-                # Finally, we merge the augmented binary masks to obtain the final segmentation mask.
-                out_mask = np.zeros_like(new_mask_arr)
-                for c in np.unique(new_mask_arr):
-                    if c > 0:
-                        curr_class_arr = np.float32(new_mask_arr == c)
-                        curr_class_arr = self.mask_generator.apply_transform(curr_class_arr, mask_t)
-                        # from [0, 1] to {0, 1}
-                        curr_class_arr = np.uint8(curr_class_arr)
-                        # recover original class
-                        curr_class_arr = curr_class_arr * c 
-                        out_mask += curr_class_arr
+        if self.which_subset == 'training' and self.img_generator is not None and self.mask_generator is not None:
+            # Perform data augmentation
+            # We can get a random transformation from the ImageDataGenerator using get_random_transform
+            # and we can apply it to the image using apply_transform
+            img_t = self.img_generator.get_random_transform(img_arr.shape, seed=SEED)
+            mask_t = self.mask_generator.get_random_transform(mask_arr.shape, seed=SEED)
+            img_arr = self.img_generator.apply_transform(img_arr, img_t)
+            # ImageDataGenerator use bilinear interpolation for augmenting the images.
+            # Thus, when applied to the masks it will output 'interpolated classes', which
+            # is an unwanted behaviour. As a trick, we can transform each class mask 
+            # separately and then we can cast to integer values (as in the binary segmentation notebook).
+            # Finally, we merge the augmented binary masks to obtain the final segmentation mask.
+            out_mask = np.zeros_like(new_mask_arr)
+            for c in np.unique(new_mask_arr):
+                if c > 0:
+                    curr_class_arr = np.float32(new_mask_arr == c)
+                    curr_class_arr = self.mask_generator.apply_transform(curr_class_arr, mask_t)
+                    # from [0, 1] to {0, 1}
+                    curr_class_arr = np.uint8(curr_class_arr)
+                    # recover original class
+                    curr_class_arr = curr_class_arr * c 
+                    out_mask += curr_class_arr
         else:
             out_mask = new_mask_arr
         
@@ -116,7 +115,7 @@ class CustomDataset(tf.keras.utils.Sequence):
         return img_arr, np.float32(out_mask)
 
 # ---- Model ----
-def create_model(num_classes):
+def create_model(img_h, img_w, num_classes):
     # Encoder
     vgg = tf.keras.applications.VGG16(weights='imagenet', include_top=False, input_shape=(img_h, img_w, 3))
 
@@ -138,7 +137,6 @@ def create_model(num_classes):
 
     # Decoder
     for i in range(depth):
-        # x = tf.keras.layers.UpSampling2D(2, interpolation='bilinear')(x)
         x = tf.keras.layers.Conv2DTranspose(
             filters=start_f,
             kernel_size=(3, 3),
@@ -182,6 +180,7 @@ if __name__ == "__main__":
     SAVE_BEST = True
     EARLY_STOP = True
     TRAIN_ALL = False
+    AUGMENT_DATA = False
 
     if TRAIN_ALL:
         PLOT = False
@@ -201,25 +200,21 @@ if __name__ == "__main__":
     # ---- ImageDataGenerator ----
     # Create training ImageDataGenerator object
     # We need two different generators for images and corresponding masks
-    img_data_gen = ImageDataGenerator(
-        rotation_range=10,
-        width_shift_range=10,
-        height_shift_range=10,
-        zoom_range=0.3,
-        horizontal_flip=True,
-        vertical_flip=True,
-        fill_mode='reflect'
-    )
+    data_gen_parameters = {
+        'rotation_range': 10,
+        'width_shift_range': 20,
+        'height_shift_range': 20,
+        'zoom_range': 0.3,
+        'horizontal_flip': True,
+        'vertical_flip': True,
+        'fill_mode': 'reflect'
+    }
 
-    mask_data_gen = ImageDataGenerator(
-        rotation_range=10,
-        width_shift_range=10,
-        height_shift_range=10,
-        zoom_range=0.3,
-        horizontal_flip=True,
-        vertical_flip=True,
-        fill_mode='reflect'
-    )
+    if AUGMENT_DATA:
+        img_data_gen = ImageDataGenerator(**data_gen_parameters)
+        mask_data_gen = ImageDataGenerator(**data_gen_parameters)
+    else:
+        img_data_gen, mask_data_gen = None, None
 
     now = datetime.now().strftime('%b%d_%H-%M-%S')
 
@@ -249,7 +244,7 @@ if __name__ == "__main__":
         ).batch(bs).repeat()
 
         num_classes = 3
-        model = create_model(num_classes=num_classes)
+        model = create_model(img_h, img_w, num_classes=num_classes)
 
         model.summary()
 
@@ -287,12 +282,14 @@ if __name__ == "__main__":
 
         # Early stopping
         if EARLY_STOP:
-            callbacks_list.append(callbacks.early_stopping(patience=10))
+            callbacks_list.append(callbacks.early_stopping(patience=5))
 
         # Save best model
         # ----------------
+        best_checkpoint_path = None
         if SAVE_BEST:
-            callbacks_list.append(callbacks.save_best(exp_dir, now))
+            best_checkpoint_path, save_best_callback = callbacks.save_best(exp_dir, now)
+            callbacks_list.append(save_best_callback)
 
 
         model.fit(
@@ -305,6 +302,8 @@ if __name__ == "__main__":
         )
 
         if PLOT:
+            if best_checkpoint_path:
+                model.load_weights(best_checkpoint_path)
             # ---- Prediction ----
             plot_predictions(model, valid_dataset, num_classes)
 

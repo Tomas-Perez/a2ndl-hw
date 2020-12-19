@@ -41,8 +41,10 @@ def save_best(experiment_dir, now_string):
     if not os.path.exists(best_dir):
         os.makedirs(best_dir)
 
-    return tf.keras.callbacks.ModelCheckpoint(
-        filepath=os.path.join(best_dir, f'model_{now_string}'), 
+    checkpoint_path = os.path.join(best_dir, f'model_{now_string}')
+
+    return checkpoint_path, tf.keras.callbacks.ModelCheckpoint(
+        filepath=checkpoint_path, 
         save_best_only=True,
         save_weights_only=True,
         monitor='val_loss',

@@ -1,7 +1,12 @@
+import os
 import tensorflow as tf
 from matplotlib import cm
 import matplotlib.pyplot as plt
 import numpy as np
+
+def get_files_in_directory(path, include_folders=False):
+    """Get all filenames in a given directory, optionally include folders as well"""
+    return [f for f in os.listdir(path) if include_folders or os.path.isfile(os.path.join(path, f))]
 
 def plot_predictions(model, valid_dataset, num_classes):
     # Assign a color to each class
@@ -42,3 +47,43 @@ def plot_predictions(model, valid_dataset, num_classes):
     ax[2].imshow(np.uint8(prediction_img))
 
     plt.show()
+
+
+if __name__ == "__main__":
+    from vgg_base import create_model, CustomDataset, MODEL_NAME
+    from dataset_types import Subdataset, Species
+    from tensorflow.keras.applications.vgg16 import preprocess_input 
+
+    dasaset_base = "Development_Dataset/Training"
+    SUBDATASET = Subdataset.BIPBIP.value
+    SPECIES = Species.HARICOT.value
+
+    img_h, img_w = 256, 256
+    bs = 32
+
+    dataset_dir = os.path.join(dasaset_base, SUBDATASET, SPECIES)
+
+    dataset_valid = CustomDataset(
+        dataset_dir, 'validation', 
+        preprocessing_function=preprocess_input
+    )
+
+
+    valid_dataset = tf.data.Dataset.from_generator(
+        lambda: dataset_valid,
+        output_types=(tf.float32, tf.float32),
+        output_shapes=([img_h, img_w, 3], [img_h, img_w, 1])
+    ).batch(bs).repeat()
+
+    num_classes = 3
+
+    # get weights
+    base_model_exp_dir = f"experiments/{MODEL_NAME}/{SUBDATASET}/{SPECIES}/best"
+    saved_weights = [os.path.join(base_model_exp_dir, f) for f in get_files_in_directory(base_model_exp_dir) if 'model' in f]
+    latest_saved_weights_path = os.path.splitext(max(saved_weights, key=os.path.getctime))[0]
+
+    print(latest_saved_weights_path)
+
+    model = create_model(img_h, img_w, num_classes)
+    model.load_weights(latest_saved_weights_path)
+    plot_predictions(model, valid_dataset, num_classes)
