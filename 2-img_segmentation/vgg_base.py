@@ -117,13 +117,12 @@ class CustomDataset(tf.keras.utils.Sequence):
 
 # ---- Model ----
 def create_model(num_classes):
+    # Encoder
     vgg = tf.keras.applications.VGG16(weights='imagenet', include_top=False, input_shape=(img_h, img_w, 3))
 
     for layer in vgg.layers:
         layer.trainable = False
 
-
-    # Encoder
     x = vgg.output
 
     skips = [
@@ -149,6 +148,7 @@ def create_model(num_classes):
         skip_index = len(skips) - i - 1
         if skip_index >= 0:
             x = tf.keras.layers.Add()([x, skips[skip_index].output])
+        x = tf.keras.layers.BatchNormalization()(x)
         x = tf.keras.layers.ReLU()(x)
 
         start_f = start_f // 2
@@ -194,8 +194,8 @@ if __name__ == "__main__":
     img_w = 256
 
     # Hyper parameters
-    bs = 16
-    lr = 1e-4
+    bs = 32
+    lr = 1e-3
     epochs = 100
 
     # ---- ImageDataGenerator ----
