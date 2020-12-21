@@ -88,8 +88,9 @@ class CustomDataset(tf.keras.utils.Sequence):
             # Perform data augmentation
             # We can get a random transformation from the ImageDataGenerator using get_random_transform
             # and we can apply it to the image using apply_transform
-            img_t = self.img_generator.get_random_transform(img_arr.shape, seed=SEED)
-            mask_t = self.mask_generator.get_random_transform(mask_arr.shape, seed=SEED)
+            transform_seed = random.randrange(0, 1 << 24)
+            img_t = self.img_generator.get_random_transform(img_arr.shape, seed=transform_seed)
+            mask_t = self.mask_generator.get_random_transform(mask_arr.shape, seed=transform_seed)
             img_arr = self.img_generator.apply_transform(img_arr, img_t)
             # ImageDataGenerator use bilinear interpolation for augmenting the images.
             # Thus, when applied to the masks it will output 'interpolated classes', which
@@ -180,7 +181,7 @@ if __name__ == "__main__":
     SAVE_BEST = True
     EARLY_STOP = True
     TRAIN_ALL = False
-    AUGMENT_DATA = False
+    AUGMENT_DATA = True
 
     if TRAIN_ALL:
         PLOT = False
@@ -282,7 +283,7 @@ if __name__ == "__main__":
 
         # Early stopping
         if EARLY_STOP:
-            callbacks_list.append(callbacks.early_stopping(patience=5))
+            callbacks_list.append(callbacks.early_stopping(patience=10))
 
         # Save best model
         # ----------------
