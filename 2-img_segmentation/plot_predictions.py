@@ -48,6 +48,24 @@ def plot_predictions(model, valid_dataset, num_classes):
 
     plt.show()
 
+def plot_only(image, num_classes):
+    # Assign a color to each class
+    evenly_spaced_interval = np.linspace(0, 1, 2)
+    colors = [cm.rainbow(x) for x in evenly_spaced_interval]
+
+    fig = plt.figure()
+    ax = fig.add_subplot()
+
+    prediction_img = np.zeros([image.shape[0], image.shape[1], 3])
+    
+    prediction_img[np.where(image == 0)] = [0, 0, 0]
+    for i in range(1, num_classes):
+        prediction_img[np.where(image == i)] = np.array(colors[i-1])[:3] * 255
+
+    ax.imshow(np.uint8(prediction_img))
+    plt.show()
+
+
 
 if __name__ == "__main__":
     from vgg_base import create_model, CustomDataset, MODEL_NAME
