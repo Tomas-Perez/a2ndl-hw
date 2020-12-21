@@ -35,13 +35,13 @@ def checkpoints(experiment_dir, now_string):
         save_weights_only=True,
     )
 
-def save_best(experiment_dir, now_string):
+def save_best(experiment_dir):
     """Enable best model checkpoint which is overwritten when a new best model is found (min validation loss)."""
     best_dir = os.path.join(experiment_dir, 'best')
     if not os.path.exists(best_dir):
         os.makedirs(best_dir)
 
-    checkpoint_path = os.path.join(best_dir, f'model_{now_string}')
+    checkpoint_path = os.path.join(best_dir, f'model')
 
     return checkpoint_path, tf.keras.callbacks.ModelCheckpoint(
         filepath=checkpoint_path, 
