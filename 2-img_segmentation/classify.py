@@ -9,6 +9,7 @@ from tensorflow.keras import backend
 from datetime import datetime
 from plot_predictions import plot_only
 import json
+from tensorflow.keras.applications.vgg16 import preprocess_input 
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 import tensorflow as tf
@@ -44,6 +45,8 @@ def empty_prediction(img_filenames, subdataset, species):
         submission_dict[img_name]['segmentation']['weed'] = ""
 
 
+PLOT = False
+
 # results dict
 submission_dict = {}
 
@@ -59,41 +62,42 @@ for subdataset in Subdataset:
         image_filenames = get_files_in_directory(dataset_dir)
 
         # get weights
-        base_model_exp_dir = f"experiments/{MODEL_NAME}/{SUBDATASET}/{SPECIES}"
+        base_model_exp_dir = f"experiments/{MODEL_NAME}/{SUBDATASET}/{SPECIES}/best"
 
         if not os.path.exists(base_model_exp_dir):
             print("\tNo experiments found, skipping...")
             empty_prediction(image_filenames, SUBDATASET, SPECIES)
             continue
 
-        saved_weights = [os.path.join(base_model_exp_dir, f) for f in get_files_in_directory(base_model_exp_dir, include_folders=True)]
-        latest_saved_weights_path = max(saved_weights, key=os.path.getctime)
-        weights = os.path.join(latest_saved_weights_path, 'best/model')
-
+        saved_weights = [os.path.join(base_model_exp_dir, f) for f in get_files_in_directory(base_model_exp_dir) if 'model' in f]
+        weights = os.path.splitext(max(saved_weights, key=os.path.getctime))[0]
 
         # load weights in model
         print(f"\tLoading weights from model: {weights}...")
         model = create_model(256, 256, 3)
         model.load_weights(weights)
 
-
         # calculate prediction for each image
         for img_name in image_filenames:
-            img = Image.open(f"{dataset_dir}/{img_name}").convert('RGB')
-            #img.show()
-            img = img.resize((256, 256))
-            img_array = np.expand_dims(np.array(img), 0) 
+            img = Image.open(f"{dataset_dir}/{img_name}")
+            img = img.resize([256, 256])
+
+            img_array = np.array(img)
+            img_array = preprocess_input(img_array)
 
             # predict -> (256, 256) with class value
-            prediction = model.predict(x=img_array)
+            prediction = model.predict(x=np.expand_dims(img_array, 0))
             prediction = tf.argmax(prediction, -1) 
             ## Get tensor's value
             prediction = np.matrix(tf.keras.backend.get_value(prediction))
 
+            if PLOT:
+                plot_only(prediction, 3)
 
-            plot_only(prediction, 3)
             prediction = cv2.resize(np.uint8(prediction), dsize=(2048,1536), interpolation = cv2.INTER_NEAREST)
-            plot_only(prediction, 3)
+
+            if PLOT:
+                plot_only(prediction, 3)
 
             img_name = os.path.splitext(img_name)[0] # remove extension
             submission_dict[img_name] = {}

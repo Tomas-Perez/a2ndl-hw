@@ -45,7 +45,7 @@ if __name__ == "__main__":
     img_name = 'arr_mask_example'
 
     # load mask <- HERE you should have your segmentation model instead
-    mask_arr = np.load('./predictions/arr_mask_example.npy')
+    mask_arr = np.load('starting_kit/predictions/arr_mask_example.npy')
 
     submission_dict = {}
     submission_dict[img_name] = {}
@@ -68,5 +68,5 @@ if __name__ == "__main__":
     # the test images.
 
     # Finally, save the results into the submission.json file
-    with open('./predictions/submission.json', 'w') as f:
+    with open('starting_kit/predictions/submission.json', 'w') as f:
         json.dump(submission_dict, f)

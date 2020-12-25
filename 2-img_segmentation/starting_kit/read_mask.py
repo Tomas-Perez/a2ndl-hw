@@ -27,6 +27,6 @@ if __name__ == "__main__":
 
     # Read the example RGB mask and transform it into integer labels.
 
-    mask = read_rgb_mask("./predictions/rgb_mask_example.png")
+    mask = read_rgb_mask("starting_kit/predictions/rgb_mask_example.png")
 
-    np.save("./predictions/arr_mask_example.npy", mask)
+    np.save("starting_kit/predictions/arr_mask_example.npy", mask)
