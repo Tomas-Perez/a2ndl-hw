@@ -19,6 +19,10 @@ from metrics import gen_meanIoU
 
 MODEL_NAME = 'Segmentation-transfer'
 
+# For ROSEAU, images are png, quick fix
+def get_img_extension(subdataset):
+    return '.png' if subdataset == Subdataset.ROSEAU.value else '.jpg'
+
 class CustomDataset(tf.keras.utils.Sequence):
     """
         CustomDataset inheriting from tf.keras.utils.Sequence.
@@ -37,7 +41,7 @@ class CustomDataset(tf.keras.utils.Sequence):
     """
 
     def __init__(self, dataset_dir, which_subset, img_generator=None, mask_generator=None, 
-        preprocessing_function=None, out_shape=[256, 256]):
+        preprocessing_function=None, out_shape=[256, 256], subdataset=None):
 
         if which_subset == 'training':
             subset_file = os.path.join(dataset_dir, 'Splits', 'train.txt')
@@ -58,6 +62,7 @@ class CustomDataset(tf.keras.utils.Sequence):
         self.mask_generator = mask_generator
         self.preprocessing_function = preprocessing_function
         self.out_shape = out_shape
+        self.subdataset = subdataset
 
     def __len__(self):
         return len(self.subset_filenames)
@@ -65,7 +70,8 @@ class CustomDataset(tf.keras.utils.Sequence):
     def __getitem__(self, index):
         # Read Image
         curr_filename = self.subset_filenames[index]
-        img = Image.open(os.path.join(self.dataset_dir, 'Images', curr_filename + '.jpg'))
+
+        img = Image.open(os.path.join(self.dataset_dir, 'Images', curr_filename + get_img_extension(self.subdataset)))
         mask = Image.open(os.path.join(self.dataset_dir, 'Masks', curr_filename + '.png'))
         
         # Resize image and mask
@@ -180,7 +186,7 @@ if __name__ == "__main__":
     CHECKPOINTS = False
     SAVE_BEST = True
     EARLY_STOP = True
-    TRAIN_ALL = False
+    TRAIN_ALL = True
     AUGMENT_DATA = True
 
     if TRAIN_ALL:
@@ -225,11 +231,11 @@ if __name__ == "__main__":
         dataset = CustomDataset(
             dataset_dir, 'training', 
             img_generator=img_data_gen, mask_generator=mask_data_gen,
-            preprocessing_function=preprocess_input
+            preprocessing_function=preprocess_input, subdataset=subdataset
         )
         dataset_valid = CustomDataset(
             dataset_dir, 'validation', 
-            preprocessing_function=preprocess_input
+            preprocessing_function=preprocess_input, subdataset=subdataset
         )
 
         train_dataset = tf.data.Dataset.from_generator(
@@ -247,7 +253,7 @@ if __name__ == "__main__":
         num_classes = 3
         model = create_model(img_h, img_w, num_classes=num_classes)
 
-        model.summary()
+        #model.summary()
 
         # Loss
         # Sparse Categorical Crossentropy to use integers (mask) instead of one-hot encoded labels
@@ -307,11 +313,14 @@ if __name__ == "__main__":
                 model.load_weights(best_checkpoint_path)
             # ---- Prediction ----
             plot_predictions(model, valid_dataset, num_classes)
-
+    
+    c = 1
     if TRAIN_ALL:
         for subdataset in Subdataset:
             for species in Species:
                 # Training and validation datasets
+                print(f"Training {c}/8: {subdataset.value}/{species.value}...")
+                c += 1
                 train_model(subdataset.value, species.value)
     else:
         train_model(subdataset.value, species.value)

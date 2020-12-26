@@ -44,7 +44,6 @@ def empty_prediction(img_filenames, subdataset, species):
         submission_dict[img_name]['segmentation']['crop'] = ""
         submission_dict[img_name]['segmentation']['weed'] = ""
 
-
 PLOT = False
 
 # results dict
@@ -62,15 +61,16 @@ for subdataset in Subdataset:
         image_filenames = get_files_in_directory(dataset_dir)
 
         # get weights
-        base_model_exp_dir = f"experiments/{MODEL_NAME}/{SUBDATASET}/{SPECIES}/best"
+        base_model_exp_dir = f"experiments/{MODEL_NAME}/{SUBDATASET}/{SPECIES}"
 
         if not os.path.exists(base_model_exp_dir):
             print("\tNo experiments found, skipping...")
             empty_prediction(image_filenames, SUBDATASET, SPECIES)
             continue
 
-        saved_weights = [os.path.join(base_model_exp_dir, f) for f in get_files_in_directory(base_model_exp_dir) if 'model' in f]
-        weights = os.path.splitext(max(saved_weights, key=os.path.getctime))[0]
+        saved_weights = [os.path.join(base_model_exp_dir, f) for f in get_files_in_directory(base_model_exp_dir, include_folders=True)]
+        latest_saved_weights_path = max(saved_weights, key=os.path.getctime)
+        weights = os.path.join(latest_saved_weights_path, 'best/model')
 
         # load weights in model
         print(f"\tLoading weights from model: {weights}...")
@@ -80,6 +80,7 @@ for subdataset in Subdataset:
         # calculate prediction for each image
         for img_name in image_filenames:
             img = Image.open(f"{dataset_dir}/{img_name}")
+            img_width, img_height = img.size
             img = img.resize([256, 256])
 
             img_array = np.array(img)
@@ -94,7 +95,7 @@ for subdataset in Subdataset:
             if PLOT:
                 plot_only(prediction, 3)
 
-            prediction = cv2.resize(np.uint8(prediction), dsize=(2048,1536), interpolation = cv2.INTER_NEAREST)
+            prediction = cv2.resize(np.uint8(prediction), dsize=(img_width, img_height), interpolation = cv2.INTER_NEAREST)
 
             if PLOT:
                 plot_only(prediction, 3)
