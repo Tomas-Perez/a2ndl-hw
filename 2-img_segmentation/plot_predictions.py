@@ -3,10 +3,7 @@ import tensorflow as tf
 from matplotlib import cm
 import matplotlib.pyplot as plt
 import numpy as np
-
-def get_files_in_directory(path, include_folders=False):
-    """Get all filenames in a given directory, optionally include folders as well"""
-    return [f for f in os.listdir(path) if include_folders or os.path.isfile(os.path.join(path, f))]
+from files_in_dir import get_files_in_directory
 
 def plot_predictions(model, valid_dataset, num_classes):
     # Assign a color to each class
@@ -16,10 +13,10 @@ def plot_predictions(model, valid_dataset, num_classes):
     iterator = iter(valid_dataset)
 
     fig, ax = plt.subplots(1, 3, figsize=(8, 8))
-    image, target = next(iterator)
+    image, target, _ = next(iterator)
+    target = np.reshape(target[0], (image.shape[1],image.shape[2]))
 
     image = image[0]
-    target = target[0, ..., 0]
 
     out_sigmoid = model.predict(x=tf.expand_dims(image, 0))
 
@@ -86,22 +83,22 @@ if __name__ == "__main__":
         preprocessing_function=preprocess_input
     )
 
-
     valid_dataset = tf.data.Dataset.from_generator(
         lambda: dataset_valid,
-        output_types=(tf.float32, tf.float32),
-        output_shapes=([img_h, img_w, 3], [img_h, img_w, 1])
+        output_types=(tf.float32, tf.float32, tf.float32),
+        output_shapes=([img_h, img_w, 3], [img_h * img_w, 1], [img_h * img_w])
     ).batch(bs).repeat()
 
     num_classes = 3
 
     # get weights
-    base_model_exp_dir = f"experiments/{MODEL_NAME}/{SUBDATASET}/{SPECIES}/best"
-    saved_weights = [os.path.join(base_model_exp_dir, f) for f in get_files_in_directory(base_model_exp_dir) if 'model' in f]
-    latest_saved_weights_path = os.path.splitext(max(saved_weights, key=os.path.getctime))[0]
+    base_model_exp_dir = f"experiments/{MODEL_NAME}/{SUBDATASET}/{SPECIES}"
+    saved_weights = [os.path.join(base_model_exp_dir, f) for f in get_files_in_directory(base_model_exp_dir, include_folders=True)]
+    latest_saved_weights_path = max(saved_weights, key=os.path.getctime)
+    weights = os.path.join(latest_saved_weights_path, 'best/model')
 
-    print(latest_saved_weights_path)
+    print(weights)
 
     model = create_model(img_h, img_w, num_classes)
-    model.load_weights(latest_saved_weights_path)
+    model.load_weights(weights)
     plot_predictions(model, valid_dataset, num_classes)

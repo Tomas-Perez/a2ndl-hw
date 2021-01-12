@@ -10,14 +10,10 @@ from datetime import datetime
 from plot_predictions import plot_only
 import json
 from tensorflow.keras.applications.vgg16 import preprocess_input 
+from files_in_dir import get_files_in_directory
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 import tensorflow as tf
-
-def get_files_in_directory(path, include_folders=False):
-    """Get all filenames in a given directory, optionally include folders as well"""
-    return [f for f in os.listdir(path) if include_folders or os.path.isfile(os.path.join(path, f))]
-
 
 def rle_encode(img):
     '''

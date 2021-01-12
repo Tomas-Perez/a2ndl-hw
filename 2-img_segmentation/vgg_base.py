@@ -16,6 +16,7 @@ from dataset_types import Subdataset, Species
 from mask_colors import BACKGROUND_1, BACKGROUND_0, WEED, CROP
 from plot_predictions import plot_predictions
 from metrics import gen_meanIoU
+import json
 
 MODEL_NAME = 'Segmentation-transfer'
 
@@ -42,6 +43,10 @@ class CustomDataset(tf.keras.utils.Sequence):
 
     def __init__(self, dataset_dir, which_subset, img_generator=None, mask_generator=None, 
         preprocessing_function=None, out_shape=[256, 256], subdataset=None):
+
+        
+        with open(os.path.join(dataset_dir, 'weights.json')) as f:
+            self.class_weights = json.load(f)
 
         if which_subset == 'training':
             subset_file = os.path.join(dataset_dir, 'Splits', 'train.txt')
@@ -119,10 +124,15 @@ class CustomDataset(tf.keras.utils.Sequence):
         if self.preprocessing_function is not None:
             img_arr = self.preprocessing_function(img_arr)
 
-        return img_arr, np.float32(out_mask)
+        out_mask = out_mask.reshape((self.out_shape[0] * self.out_shape[1], 1))
+        weights = np.ndarray.flatten(out_mask)
+        for c in range(len(self.class_weights)):
+            weights[weights == c] = self.class_weights[c]
+
+        return img_arr, np.float32(out_mask), weights
 
 # ---- Model ----
-def create_model(img_h, img_w, num_classes):
+def create_model(img_h, img_w, num_classes, train_mode=False):
     # Encoder
     vgg = tf.keras.applications.VGG16(weights='imagenet', include_top=False, input_shape=(img_h, img_w, 3))
 
@@ -166,6 +176,9 @@ def create_model(img_h, img_w, num_classes):
         padding='same',
         activation='softmax'
     )(x)
+
+    if train_mode:
+        x = tf.keras.layers.Reshape((img_h * img_w, num_classes))(x)
     
     return tf.keras.Model(inputs = vgg.input, outputs = x)
 
@@ -186,7 +199,7 @@ if __name__ == "__main__":
     CHECKPOINTS = False
     SAVE_BEST = True
     EARLY_STOP = True
-    TRAIN_ALL = True
+    TRAIN_ALL = False
     AUGMENT_DATA = True
 
     if TRAIN_ALL:
@@ -240,20 +253,21 @@ if __name__ == "__main__":
 
         train_dataset = tf.data.Dataset.from_generator(
             lambda: dataset,
-            output_types=(tf.float32, tf.float32),
-            output_shapes=([img_h, img_w, 3], [img_h, img_w, 1])
+            output_types=(tf.float32, tf.float32, tf.float32),
+            output_shapes=([img_h, img_w, 3], [img_h * img_w, 1], [img_h * img_w])
         ).batch(bs).repeat()
 
         valid_dataset = tf.data.Dataset.from_generator(
             lambda: dataset_valid,
-            output_types=(tf.float32, tf.float32),
-            output_shapes=([img_h, img_w, 3], [img_h, img_w, 1])
+            output_types=(tf.float32, tf.float32, tf.float32),
+            output_shapes=([img_h, img_w, 3], [img_h * img_w, 1], [img_h * img_w])
         ).batch(bs).repeat()
 
         num_classes = 3
-        model = create_model(img_h, img_w, num_classes=num_classes)
+        model = create_model(img_h, img_w, num_classes=num_classes, train_mode=True)
 
-        #model.summary()
+        if not TRAIN_ALL:
+            model.summary()
 
         # Loss
         # Sparse Categorical Crossentropy to use integers (mask) instead of one-hot encoded labels
@@ -266,7 +280,7 @@ if __name__ == "__main__":
         metrics = ['accuracy', gen_meanIoU(num_classes)]
 
         # Compile Model
-        model.compile(optimizer=optimizer, loss=loss, metrics=metrics)
+        model.compile(optimizer=optimizer, loss=loss, metrics=metrics, sample_weight_mode="temporal")
 
         # ---- Callbacks ----
         exps_dir = "experiments"
@@ -298,21 +312,24 @@ if __name__ == "__main__":
             best_checkpoint_path, save_best_callback = callbacks.save_best(exp_dir)
             callbacks_list.append(save_best_callback)
 
-
         model.fit(
             x=train_dataset,
             epochs=epochs,
             steps_per_epoch=len(dataset),
             validation_data=valid_dataset,
             validation_steps=len(dataset_valid), 
-            callbacks=callbacks_list
+            callbacks=callbacks_list,
         )
 
         if PLOT:
+            # rebuild model with no final reshaping
+            prediction_model = create_model(img_h, img_w, num_classes=num_classes, train_mode=False)
             if best_checkpoint_path:
-                model.load_weights(best_checkpoint_path)
+                prediction_model.load_weights(best_checkpoint_path)
+            else:
+                prediction_model.set_weights(model.get_weights())
             # ---- Prediction ----
-            plot_predictions(model, valid_dataset, num_classes)
+            plot_predictions(prediction_model, valid_dataset, num_classes)
     
     c = 1
     if TRAIN_ALL:

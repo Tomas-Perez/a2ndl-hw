@@ -8,10 +8,7 @@ from dataset_types import Subdataset, Species
 from tensorflow.keras.applications.vgg16 import preprocess_input 
 from PIL import Image
 from mask_colors import BACKGROUND_1, BACKGROUND_0, WEED, CROP
-
-def get_files_in_directory(path, include_folders=False):
-    """Get all filenames in a given directory, optionally include folders as well"""
-    return [f for f in os.listdir(path) if include_folders or os.path.isfile(os.path.join(path, f))]
+from files_in_dir import get_files_in_directory
 
 dataset_base = "Development_Dataset/Training"
 SUBDATASET = Subdataset.BIPBIP.value
@@ -44,14 +41,15 @@ new_mask_arr = np.float32(new_mask_arr)
 num_classes = 3
 
 # get weights
-base_model_exp_dir = f"experiments/{MODEL_NAME}/{SUBDATASET}/{SPECIES}/best"
-saved_weights = [os.path.join(base_model_exp_dir, f) for f in get_files_in_directory(base_model_exp_dir) if 'model' in f]
-latest_saved_weights_path = os.path.splitext(max(saved_weights, key=os.path.getctime))[0]
+base_model_exp_dir = f"experiments/{MODEL_NAME}/{SUBDATASET}/{SPECIES}"
+saved_weights = [os.path.join(base_model_exp_dir, f) for f in get_files_in_directory(base_model_exp_dir, include_folders=True)]
+latest_saved_weights_path = max(saved_weights, key=os.path.getctime)
+weights = os.path.join(latest_saved_weights_path, 'best/model')
 
-print(latest_saved_weights_path)
+print(weights)
 
 model = create_model(img_h, img_w, num_classes)
-model.load_weights(latest_saved_weights_path)
+model.load_weights(weights)
 
 img_array = np.array(img)
 img_array = preprocess_input(img_array)
