@@ -36,6 +36,7 @@ def run(weights_dir, img_path, mask_path):
 
     img_array = np.array(img)
 
+    # could we feed the whole image instead of patches?
     padded_img = patching.resize_for_patching(img_array, (patch_size, patch_size))
 
     patches = patching.generate_patches(padded_img, (patch_size, patch_size))
