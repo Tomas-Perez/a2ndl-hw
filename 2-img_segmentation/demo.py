@@ -9,79 +9,96 @@ from tensorflow.keras.applications.vgg16 import preprocess_input
 from PIL import Image
 from mask_colors import BACKGROUND_1, BACKGROUND_0, WEED, CROP
 from files_in_dir import get_files_in_directory
+import patching
 
-dataset_base = "Development_Dataset/Training"
-SUBDATASET = Subdataset.BIPBIP.value
-SPECIES = Species.HARICOT.value
+def run(weights_dir, img_path, mask_path):
+    patch_size = 256
 
-img_h, img_w = 256, 256
+    img = Image.open(img_path)
+    mask = Image.open(mask_path)
+    mask_arr = np.array(mask)
 
-dataset_dir = os.path.join(dataset_base, SUBDATASET, SPECIES)
+    # Convert RGB mask for each class to numbers from 0 to 2
+    new_mask_arr = np.zeros(mask_arr.shape[:2], dtype=mask_arr.dtype)
+    new_mask_arr = np.expand_dims(new_mask_arr, -1)
 
-image_name = "Bipbip_haricot_im_00391"
+    new_mask_arr[np.where(np.all(mask_arr == BACKGROUND_0, axis=-1))] = 0
+    new_mask_arr[np.where(np.all(mask_arr == BACKGROUND_1, axis=-1))] = 0
+    new_mask_arr[np.where(np.all(mask_arr == CROP, axis=-1))] = 1
+    new_mask_arr[np.where(np.all(mask_arr == WEED, axis=-1))] = 2
 
-img_path = os.path.join(dataset_dir, "Images", f"{image_name}.jpg")
-mask_path = os.path.join(dataset_dir, "Masks", f"{image_name}.png")
+    new_mask_arr = np.float32(new_mask_arr)
 
-img = Image.open(img_path).resize([img_h, img_w])
-mask = Image.open(mask_path).resize([img_h, img_w], resample=Image.NEAREST)
-mask_arr = np.array(mask)
+    num_classes = 3
 
-# Convert RGB mask for each class to numbers from 0 to 2
-new_mask_arr = np.zeros(mask_arr.shape[:2], dtype=mask_arr.dtype)
-new_mask_arr = np.expand_dims(new_mask_arr, -1)
+    model = create_model(patch_size, patch_size, num_classes)
+    model.load_weights(weights).expect_partial()
 
-new_mask_arr[np.where(np.all(mask_arr == BACKGROUND_0, axis=-1))] = 0
-new_mask_arr[np.where(np.all(mask_arr == BACKGROUND_1, axis=-1))] = 0
-new_mask_arr[np.where(np.all(mask_arr == CROP, axis=-1))] = 1
-new_mask_arr[np.where(np.all(mask_arr == WEED, axis=-1))] = 2
+    img_array = np.array(img)
 
-new_mask_arr = np.float32(new_mask_arr)
+    padded_img = patching.resize_for_patching(img_array, (patch_size, patch_size))
 
-num_classes = 3
+    patches = patching.generate_patches(padded_img, (patch_size, patch_size))
 
-# get weights
-base_model_exp_dir = f"experiments/{MODEL_NAME}/{SUBDATASET}/{SPECIES}"
-saved_weights = [os.path.join(base_model_exp_dir, f) for f in get_files_in_directory(base_model_exp_dir, include_folders=True)]
-latest_saved_weights_path = max(saved_weights, key=os.path.getctime)
-weights = os.path.join(latest_saved_weights_path, 'best/model')
+    predicted = []
+    for p in patches:
+        p = preprocess_input(p)
 
-print(weights)
+        # predict -> (256, 256) with class value
+        patch_pred = model.predict(x=np.expand_dims(p, 0))
+        patch_pred = tf.argmax(patch_pred, -1) 
+        ## Get tensor's value
+        patch_pred = tf.keras.backend.get_value(patch_pred).reshape((patch_size, patch_size))
+        predicted.append(patch_pred)
 
-model = create_model(img_h, img_w, num_classes)
-model.load_weights(weights)
+    predicted = np.stack(predicted)
+    predicted = patching.restore_from_patches(predicted, padded_img.shape[:-1])
+    prediction = patching.remove_padding(predicted, img_array.shape[:-1])
 
-img_array = np.array(img)
-img_array = preprocess_input(img_array)
+    # Assign a color to each class
+    evenly_spaced_interval = np.linspace(0, 1, 2)
+    colors = [cm.rainbow(x) for x in evenly_spaced_interval]
 
-# predict -> (256, 256) with class value
-prediction = model.predict(x=np.expand_dims(img_array, 0))
-prediction = tf.argmax(prediction, -1) 
-## Get tensor's value
-prediction = np.matrix(tf.keras.backend.get_value(prediction))
+    fig, ax = plt.subplots(1, 3, figsize=(8, 8))
 
-# Assign a color to each class
-evenly_spaced_interval = np.linspace(0, 1, 2)
-colors = [cm.rainbow(x) for x in evenly_spaced_interval]
+    target = new_mask_arr[..., 0]
 
-fig, ax = plt.subplots(1, 3, figsize=(8, 8))
+    # Assign colors (just for visualization)
+    target_img = np.zeros([target.shape[0], target.shape[1], 3])
+    prediction_img = np.zeros([target.shape[0], target.shape[1], 3])
 
-target = new_mask_arr[..., 0]
+    target_img[np.where(target == 0)] = [0, 0, 0]
+    for i in range(1, num_classes):
+        target_img[np.where(target == i)] = np.array(colors[i-1])[:3] * 255
 
-# Assign colors (just for visualization)
-target_img = np.zeros([target.shape[0], target.shape[1], 3])
-prediction_img = np.zeros([target.shape[0], target.shape[1], 3])
+    prediction_img[np.where(prediction == 0)] = [0, 0, 0]
+    for i in range(1, num_classes):
+        prediction_img[np.where(prediction == i)] = np.array(colors[i-1])[:3] * 255
 
-target_img[np.where(target == 0)] = [0, 0, 0]
-for i in range(1, num_classes):
-    target_img[np.where(target == i)] = np.array(colors[i-1])[:3] * 255
+    ax[0].imshow(img)
+    ax[1].imshow(np.uint8(target_img))
+    ax[2].imshow(np.uint8(prediction_img))
 
-prediction_img[np.where(prediction == 0)] = [0, 0, 0]
-for i in range(1, num_classes):
-    prediction_img[np.where(prediction == i)] = np.array(colors[i-1])[:3] * 255
+    plt.show()
 
-ax[0].imshow(img)
-ax[1].imshow(np.uint8(target_img))
-ax[2].imshow(np.uint8(prediction_img))
+if __name__ == "__main__":
+    dataset_base = "Development_Dataset/Training"
+    SUBDATASET = Subdataset.BIPBIP.value
+    SPECIES = Species.HARICOT.value
 
-plt.show()
+    # get weights
+    base_model_exp_dir = f"experiments/{MODEL_NAME}/{SUBDATASET}/{SPECIES}"
+    saved_weights = [os.path.join(base_model_exp_dir, f) for f in get_files_in_directory(base_model_exp_dir, include_folders=True)]
+    latest_saved_weights_path = max(saved_weights, key=os.path.getctime)
+    weights = os.path.join(latest_saved_weights_path, 'best/model')
+
+    dataset_dir = os.path.join(dataset_base, SUBDATASET, SPECIES)
+
+    image_name = "Bipbip_haricot_im_00391"
+
+    img_path = os.path.join(dataset_dir, "Images", f"{image_name}.jpg")
+    mask_path = os.path.join(dataset_dir, "Masks", f"{image_name}.png")
+
+    print(weights)
+    run(weights, img_path, mask_path)
+    

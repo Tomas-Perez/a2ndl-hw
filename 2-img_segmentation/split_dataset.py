@@ -7,7 +7,7 @@ if __name__ == "__main__":
     SEED = 9999
     random.seed(SEED)
 
-    DATASET_DIR = "Development_Dataset/Training"
+    DATASET_DIR = "Merged_Dataset/Training"
     VALIDATION_SPLIT = 0.2
     for sd in Subdataset:
         for species in Species:

@@ -53,7 +53,7 @@ for subdataset in Subdataset:
         print(f"Classifying {SUBDATASET}/{SPECIES}")
 
         # dataset dir
-        dataset_dir = f"Development_Dataset/Test_Dev/{SUBDATASET}/{SPECIES}/Images"
+        dataset_dir = f"Merged_Dataset/Test_Final/{SUBDATASET}/{SPECIES}/Images"
         image_filenames = get_files_in_directory(dataset_dir)
 
         # get weights

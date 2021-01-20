@@ -14,7 +14,7 @@ def normalize_weights(weights):
         weights[i] /= mininum
 
 if __name__ == "__main__":
-    base_dir = 'Development_Dataset/Training'
+    base_dir = 'Merged_Dataset/Training'
     for subdataset in Subdataset:
         for species in Species:
             print(f"{subdataset.value} | {species.value}:")
