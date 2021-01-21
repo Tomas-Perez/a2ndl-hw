@@ -11,6 +11,7 @@ from plot_predictions import plot_only
 import json
 from tensorflow.keras.applications.vgg16 import preprocess_input 
 from files_in_dir import get_files_in_directory
+import patching
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 import tensorflow as tf
@@ -42,6 +43,8 @@ def empty_prediction(img_filenames, subdataset, species):
 
 PLOT = False
 
+patch_size = 256
+num_classes = 3
 # results dict
 submission_dict = {}
 
@@ -70,31 +73,48 @@ for subdataset in Subdataset:
 
         # load weights in model
         print(f"\tLoading weights from model: {weights}...")
-        model = create_model(256, 256, 3)
-        model.load_weights(weights)
+
+        model = create_model(patch_size, patch_size, num_classes)
+        model.load_weights(weights).expect_partial()
 
         # calculate prediction for each image
         for img_name in image_filenames:
             img = Image.open(f"{dataset_dir}/{img_name}")
             img_width, img_height = img.size
-            img = img.resize([256, 256])
+            #img = img.resize([256, 256])
 
             img_array = np.array(img)
+            
+            padded_img = patching.resize_for_patching(img_array, (patch_size, patch_size))
+            patches = patching.generate_patches(padded_img, (patch_size, patch_size))
+            
             img_array = preprocess_input(img_array)
 
-            # predict -> (256, 256) with class value
-            prediction = model.predict(x=np.expand_dims(img_array, 0))
-            prediction = tf.argmax(prediction, -1) 
-            ## Get tensor's value
-            prediction = np.matrix(tf.keras.backend.get_value(prediction))
+            predicted = []
+            for p in patches:
+                p = preprocess_input(p)
+
+                # predict -> (256, 256) with class value
+                patch_pred = model.predict(x=np.expand_dims(p, 0))
+                patch_pred = tf.argmax(patch_pred, -1) 
+                ## Get tensor's value
+                patch_pred = tf.keras.backend.get_value(patch_pred).reshape((patch_size, patch_size))
+                predicted.append(patch_pred)                
+ 
+
+            predicted = np.stack(predicted)
+            predicted = patching.restore_from_patches(predicted, padded_img.shape[:-1])
+            prediction = patching.remove_padding(predicted, img_array.shape[:-1])
 
             if PLOT:
                 plot_only(prediction, 3)
 
-            prediction = cv2.resize(np.uint8(prediction), dsize=(img_width, img_height), interpolation = cv2.INTER_NEAREST)
+            #prediction = cv2.resize(np.uint8(prediction), dsize=(img_width, img_height), interpolation = cv2.INTER_NEAREST)
 
-            if PLOT:
-                plot_only(prediction, 3)
+            #if PLOT:
+            #    plot_only(prediction, 3)
+
+            
 
             img_name = os.path.splitext(img_name)[0] # remove extension
             submission_dict[img_name] = {}

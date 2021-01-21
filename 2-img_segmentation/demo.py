@@ -11,10 +11,13 @@ from mask_colors import BACKGROUND_1, BACKGROUND_0, WEED, CROP
 from files_in_dir import get_files_in_directory
 import patching
 
+use_patches = False
+
 def run(weights_dir, img_path, mask_path):
     patch_size = 256
 
     img = Image.open(img_path)
+    img_width, img_height = img.size
     mask = Image.open(mask_path)
     mask_arr = np.array(mask)
 
@@ -31,30 +34,40 @@ def run(weights_dir, img_path, mask_path):
 
     num_classes = 3
 
-    model = create_model(patch_size, patch_size, num_classes)
-    model.load_weights(weights).expect_partial()
-
     img_array = np.array(img)
 
-    # could we feed the whole image instead of patches?
-    padded_img = patching.resize_for_patching(img_array, (patch_size, patch_size))
+    if use_patches:
+        model = create_model(patch_size, patch_size, num_classes)
+        model.load_weights(weights).expect_partial()
+        
+        # could we feed the whole image instead of patches?
+        padded_img = patching.resize_for_patching(img_array, (patch_size, patch_size))
 
-    patches = patching.generate_patches(padded_img, (patch_size, patch_size))
+        patches = patching.generate_patches(padded_img, (patch_size, patch_size))
 
-    predicted = []
-    for p in patches:
-        p = preprocess_input(p)
+        predicted = []
+        for p in patches:
+            p = preprocess_input(p)
 
-        # predict -> (256, 256) with class value
-        patch_pred = model.predict(x=np.expand_dims(p, 0))
-        patch_pred = tf.argmax(patch_pred, -1) 
-        ## Get tensor's value
-        patch_pred = tf.keras.backend.get_value(patch_pred).reshape((patch_size, patch_size))
-        predicted.append(patch_pred)
+            # predict -> (256, 256) with class value
+            patch_pred = model.predict(x=np.expand_dims(p, 0))
+            patch_pred = tf.argmax(patch_pred, -1) 
+            ## Get tensor's value
+            patch_pred = tf.keras.backend.get_value(patch_pred).reshape((patch_size, patch_size))
+            predicted.append(patch_pred)
 
-    predicted = np.stack(predicted)
-    predicted = patching.restore_from_patches(predicted, padded_img.shape[:-1])
-    prediction = patching.remove_padding(predicted, img_array.shape[:-1])
+        predicted = np.stack(predicted)
+        predicted = patching.restore_from_patches(predicted, padded_img.shape[:-1])
+        prediction = patching.remove_padding(predicted, img_array.shape[:-1])
+        
+    else:
+        model = create_model(img_height, img_width, num_classes)
+        model.load_weights(weights).expect_partial()
+
+        p = preprocess_input(img_array)
+        prediction = model.predict(x=np.expand_dims(p, 0))
+        prediction = tf.argmax(prediction, -1) 
+        prediction = tf.keras.backend.get_value(prediction).reshape((img_height, img_width))
 
     # Assign a color to each class
     evenly_spaced_interval = np.linspace(0, 1, 2)
@@ -83,7 +96,7 @@ def run(weights_dir, img_path, mask_path):
     plt.show()
 
 if __name__ == "__main__":
-    dataset_base = "Development_Dataset/Training"
+    dataset_base = "Merged_Dataset/Training"
     SUBDATASET = Subdataset.BIPBIP.value
     SPECIES = Species.HARICOT.value
 

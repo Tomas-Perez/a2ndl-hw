@@ -334,7 +334,7 @@ if __name__ == "__main__":
     img_w = 256
 
     # Hyper parameters
-    bs = 32
+    bs = 128
     lr = 1e-3
     epochs = 100
 
