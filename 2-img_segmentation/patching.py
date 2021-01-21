@@ -6,11 +6,13 @@ import matplotlib.pyplot as plt
 import math
 
 def len_patches(image_shape, patch_size):
+    """Return the amount of patches that can be extracted from an image"""
     patch_dim_x = image_shape[0] // patch_size[0]
     patch_dim_y = image_shape[1] // patch_size[1]
     return patch_dim_x * patch_dim_y
 
 def get_patch(idx, image_array, patch_size):
+    """Extract patch of a given size from an image array. idx must be in the range of [0, len_patches - 1]."""
     patch_dim_x = image_array.shape[0] // patch_size[0]
     patch_dim_y = image_array.shape[1] // patch_size[1]
     j = (idx % patch_dim_y) * patch_size[1]
@@ -18,9 +20,11 @@ def get_patch(idx, image_array, patch_size):
     return image_array[i:patch_size[0]+i, j:patch_size[1]+j]
 
 def generate_patches(image_array, patch_size):
+    """Extract all patches of a given size from an image"""
     return np.stack([get_patch(i, image_array, patch_size) for i in range(len_patches(image_array.shape, patch_size))])
 
 def restore_from_patches(patches, shape):
+    """Join the patches into a single image of a given shape"""
     res = np.zeros(shape, dtype=np.int32)
     patch_size = patches.shape[1:]
     i = 0
@@ -37,10 +41,12 @@ def restore_from_patches(patches, shape):
     return res
 
 def calculate_padding(curr_size, desired_size):
+    """Calculate how much to pad an image to achieve a desired size"""
     side_adjust = (desired_size - curr_size) / 2
     return (math.floor(side_adjust), math.ceil(side_adjust))
 
 def get_shape_for_patching(img_shape, patch_size):
+    """Calculate the needed size for an image so it can be divided evenly in patches of patch_size"""
     if img_shape[0] % patch_size[0] != 0:
         needed_x_size = math.ceil(img_shape[0] / patch_size[0]) * patch_size[0]
     else:
@@ -54,6 +60,7 @@ def get_shape_for_patching(img_shape, patch_size):
     return (needed_x_size, needed_y_size)
 
 def resize_for_patching(image_array, patch_size):
+    """Resize a given image by padding so that it can be divided evenly in patches of patch_size"""
     img_shape = image_array.shape
     NO_PAD = (0,0)
 
@@ -70,6 +77,7 @@ def resize_for_patching(image_array, patch_size):
         return np.pad(image_array, paddings)
 
 def remove_padding(image_array, original_shape):
+    """Remove padding from an image so that it is restored to its original shape"""
     if image_array.shape == original_shape:
         return image_array
 

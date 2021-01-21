@@ -8,6 +8,11 @@ from files_in_dir import get_files_in_directory
 from progressbar import progressbar
 import json
 
+"""
+Read all masks for each dataset and calculate the average percentage of pixels belonging to each class in order to determine 
+the weight to assign to each class. The less represented the class the higher the weight.
+"""
+
 def normalize_weights(weights):
     mininum = min(weights)
     for i in range(len(weights)):
