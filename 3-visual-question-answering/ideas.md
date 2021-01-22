@@ -1,3 +1,6 @@
+Note: model based on https://github.com/anantzoid/VQA-Keras-Visual-Question-Answering
+
+
 1. Perform embedding on encodings made by word2vec or something similar.
 
     I don't know if we can just grab the encodings from somewhere or we should train word2vec over the dictionary we have.
