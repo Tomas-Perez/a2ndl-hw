@@ -8,7 +8,9 @@ from matplotlib import cm
 import json
 import math
 from itertools import islice
-from tokenizerr import get_tokenizer
+from tokens import get_tokenizer, preprocess_question
+from glove import get_embeddings, get_answer_distance_matrix
+
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2' # set TF logging to ERROR, needs to be done before importing TF
 import tensorflow as tf
@@ -16,6 +18,7 @@ from tensorflow.keras.preprocessing.text import Tokenizer
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from tensorflow.keras.applications.vgg16 import preprocess_input 
+import tensorflow.keras.backend as K
 
 import callbacks
 from labels_dict import labels_dict
@@ -24,13 +27,12 @@ MODEL_NAME = 'VQA-model'
 
 FINETUNING = False
 
-def create_model(img_h, img_w, num_classes, max_seq_length, vocabulary_length, embedding_dim, train_mode=True):
+def create_model(img_h, img_w, num_classes, max_seq_length, embedding_matrix, train_mode=True):
     vgg = tf.keras.applications.VGG16(weights='imagenet', include_top=False, input_shape=(img_h, img_w, 3))
 
     if train_mode:
         if FINETUNING:
             freeze_until = 15
-
             for layer in vgg.layers[:freeze_until]:
                 layer.trainable = False
         else:
@@ -45,13 +47,21 @@ def create_model(img_h, img_w, num_classes, max_seq_length, vocabulary_length, e
 
     text_feature_model = tf.keras.Sequential()
     text_feature_model.add(tf.keras.Input(shape=[max_seq_length]))
-    text_feature_model.add(tf.keras.layers.Embedding(vocabulary_length, embedding_dim, input_length=max_seq_length, mask_zero=True))
-    text_feature_model.add(tf.keras.layers.LSTM(units=512, return_sequences=True))
-    text_feature_model.add(tf.keras.layers.LSTM(units=512, return_sequences=False))
+    embedding_layer = tf.keras.layers.Embedding(
+        embedding_matrix.shape[0], 
+        embedding_matrix.shape[1], 
+        weights=[embedding_matrix], 
+        input_length=max_seq_length, 
+        mask_zero=True
+    )
+    embedding_layer.trainable = False
+    text_feature_model.add(embedding_layer)
+    text_feature_model.add(tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(units=512, return_sequences=True)))
+    text_feature_model.add(tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(units=512, return_sequences=False)))
     text_feature_model.add(tf.keras.layers.Dense(merge_layer_units, activation='relu'))
 
     final_model_output = tf.keras.layers.Multiply()([img_feature_model.output, text_feature_model.output])
-    final_model_output = tf.keras.layers.Dense(units=512, activation='relu')(final_model_output)
+    final_model_output = tf.keras.layers.Dense(units=merge_layer_units//2, activation='relu')(final_model_output)
     final_model_output = tf.keras.layers.Dense(units=num_classes, activation='softmax')(final_model_output)
 
     return tf.keras.Model(inputs = [img_feature_model.input, text_feature_model.input], outputs = final_model_output)
@@ -84,6 +94,7 @@ class VQADataset(tf.keras.utils.Sequence):
         self.preprocessing_function = img_preprocessing_function
         self.out_shape = img_out_shape
         self.tokenized_texts = tokenized_texts
+        self.num_classes = num_classes
 
     def __len__(self):
         return len(self.annotations)
@@ -91,9 +102,9 @@ class VQADataset(tf.keras.utils.Sequence):
     def __getitem__(self, index):
         curr_annotation = self.annotations[index][1]
         curr_filename = curr_annotation["image_id"] + ".png"
-        curr_question = text_inputs[self.annotations[index][0]]
+        curr_question = self.tokenized_texts[self.annotations[index][0]]
         correct_idx = labels_dict[curr_annotation["answer"]]
-        curr_answer = np.zeros(num_classes)
+        curr_answer = np.zeros(self.num_classes)
         curr_answer[correct_idx] = 1
         
         # Read Image and perform augmentation if necessary
@@ -111,6 +122,43 @@ class VQADataset(tf.keras.utils.Sequence):
 
         return (img_arr, curr_question), curr_answer
 
+class WeightedCategoricalCrossentropy(tf.keras.losses.CategoricalCrossentropy):
+    
+    def __init__(self, cost_mat, name='weighted_categorical_crossentropy', **kwargs):
+        assert cost_mat.ndim == 2
+        assert cost_mat.shape[0] == cost_mat.shape[1]
+        
+        super().__init__(name=name, **kwargs)
+        self.cost_mat = K.cast_to_floatx(cost_mat)
+    
+    def __call__(self, y_true, y_pred, sample_weight=None):
+        assert sample_weight is None, "should only be derived from the cost matrix"
+      
+        return super().__call__(
+            y_true=y_true,
+            y_pred=y_pred,
+            sample_weight=get_sample_weights(y_true, y_pred, self.cost_mat),
+        )
+
+
+def get_sample_weights(y_true, y_pred, cost_m):
+    num_classes = len(cost_m)
+
+    y_pred.shape.assert_has_rank(2)
+    y_pred.shape[1:].assert_is_compatible_with(num_classes)
+    y_pred.shape.assert_is_compatible_with(y_true.shape)
+
+    y_pred = K.one_hot(K.argmax(y_pred), num_classes)
+
+    y_true_nk1 = K.expand_dims(y_true, 2)
+    y_pred_n1k = K.expand_dims(y_pred, 1)
+    cost_m_1kk = K.expand_dims(cost_m, 0)
+
+    sample_weights_nkk = cost_m_1kk * y_true_nk1 * y_pred_n1k
+    sample_weights_n = K.sum(sample_weights_nkk, axis=[1, 2])
+
+    return sample_weights_n
+
 def build_text_inputs(dataset_dir, max_seq_length):
     # Create Tokenizer to convert words to integers
     questions = []
@@ -118,7 +166,7 @@ def build_text_inputs(dataset_dir, max_seq_length):
     with open(os.path.join(dataset_dir, 'train_questions_annotations.json')) as f:
         annotations = json.load(f)
         for a_id, a in annotations.items():
-            questions.append(a['question'])
+            questions.append(preprocess_question(a['question']))
             annotation_ids.append(a_id)
 
     MAX_NUM_WORDS = 5000
@@ -143,10 +191,7 @@ if __name__ == "__main__":
     SAVE_BEST = True
     VALIDATION_SPLIT = 0.15
 
-    # THESE VALUES WERE CALCULATED ONCE, THEY DON'T CHANGE
-    # WE COULD EVENTUALLY SAVE THEM WHEN TOKENIZING TO MAKE IT DATASET INDEPENDENT
     max_seq_length = 21
-    num_words = 4640
 
     dataset_dir = 'VQA_Dataset'
 
@@ -163,15 +208,13 @@ if __name__ == "__main__":
     bs = 64
     lr = 1e-3
     epochs = 100
-    embedding_dim = 32
 
     num_classes = len(labels_dict)
 
     model = create_model(img_dim, img_dim, 
         num_classes=num_classes, 
         max_seq_length=max_seq_length, 
-        vocabulary_length=num_words, 
-        embedding_dim=embedding_dim
+        embedding_matrix=get_embeddings(),
     )
 
     model.summary()
@@ -217,8 +260,8 @@ if __name__ == "__main__":
     ).batch(bs).repeat()
 
     # Loss
-    # Sparse Categorical Crossentropy to use integers (mask) instead of one-hot encoded labels
-    loss = tf.keras.losses.CategoricalCrossentropy()
+    # Weighted categorical crossentropy so the loss depends on the embedding vector distance between the class labels.
+    loss = WeightedCategoricalCrossentropy(get_answer_distance_matrix())
 
     # learning rate
     optimizer = tf.keras.optimizers.Adam(learning_rate=lr)

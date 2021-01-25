@@ -3,7 +3,7 @@ from datetime import datetime
 from labels_dict import labels_dict
 from files_in_dir import get_files_in_directory
 from vqa_model import create_model, MODEL_NAME
-from tokenizerr import get_tokenizer
+from tokens import get_tokenizer, preprocess_question
 import numpy as np
 from PIL import Image
 import json
@@ -37,7 +37,7 @@ def build_data(dataset_dir):
     with open(os.path.join(dataset_dir, 'test_questions.json')) as f:
         annotations = json.load(f)
         for a_id, a in annotations.items():
-            questions.append(a['question'])
+            questions.append(preprocess_question(a['question']))
             images.append(a['image_id'] + ".png")
             annotation_ids.append(a_id)
     

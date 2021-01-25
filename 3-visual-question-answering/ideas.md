@@ -1,5 +1,7 @@
 Note: model based on https://github.com/anantzoid/VQA-Keras-Visual-Question-Answering
 
+Download GloVe vectors: http://nlp.stanford.edu/data/glove.6B.zip
+
 
 1. Perform embedding on encodings made by word2vec or something similar.
 
