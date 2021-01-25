@@ -8,6 +8,7 @@ from matplotlib import cm
 import json
 import math
 from itertools import islice
+from tokenizerr import get_tokenizer
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2' # set TF logging to ERROR, needs to be done before importing TF
 import tensorflow as tf
@@ -20,6 +21,8 @@ import callbacks
 from labels_dict import labels_dict
 
 MODEL_NAME = 'VQA-model'
+
+FINETUNING = False
 
 def create_model(img_h, img_w, num_classes, max_seq_length, vocabulary_length, embedding_dim, train_mode=True):
     vgg = tf.keras.applications.VGG16(weights='imagenet', include_top=False, input_shape=(img_h, img_w, 3))
@@ -108,7 +111,7 @@ class VQADataset(tf.keras.utils.Sequence):
 
         return (img_arr, curr_question), curr_answer
 
-def build_text_inputs(dataset_dir):
+def build_text_inputs(dataset_dir, max_seq_length):
     # Create Tokenizer to convert words to integers
     questions = []
     annotation_ids = []
@@ -119,19 +122,18 @@ def build_text_inputs(dataset_dir):
             annotation_ids.append(a_id)
 
     MAX_NUM_WORDS = 5000
-    tokenizer = Tokenizer(num_words=MAX_NUM_WORDS)
-    tokenizer.fit_on_texts(questions)
+    
+    tokenizer = get_tokenizer()
     tokenized = tokenizer.texts_to_sequences(questions)
 
     word_index = tokenizer.word_index
-    max_length = max(len(q) for q in tokenized)
-    text_inputs = pad_sequences(tokenized, maxlen=max_length)
+    text_inputs = pad_sequences(tokenized, maxlen=max_seq_length)
 
     res = dict()
     for i in range(len(annotation_ids)):
         res[annotation_ids[i]] = text_inputs[i]
 
-    return res, len(word_index), max_length
+    return res
 
 if __name__ == "__main__":
     AUGMENT_DATA = True
@@ -140,18 +142,22 @@ if __name__ == "__main__":
     TENSORBOARD = False
     SAVE_BEST = True
     VALIDATION_SPLIT = 0.15
-    FINETUNING = False
+
+    # THESE VALUES WERE CALCULATED ONCE, THEY DON'T CHANGE
+    # WE COULD EVENTUALLY SAVE THEM WHEN TOKENIZING TO MAKE IT DATASET INDEPENDENT
+    max_seq_length = 21
+    num_words = 4640
 
     dataset_dir = 'VQA_Dataset'
 
-    text_inputs, num_words, max_seq_length = build_text_inputs(dataset_dir)
+    text_inputs = build_text_inputs(dataset_dir, max_seq_length)
 
     # Set global seed for all internal generators, this should make all randomization reproducible
     import signal
     SEED = signal.SIGSEGV.value # Set SEED to SEG_FAULT code (11)
     set_seeds(SEED)
 
-    img_dim = 128
+    img_dim = 256
     
     # Hyper parameters
     bs = 64
