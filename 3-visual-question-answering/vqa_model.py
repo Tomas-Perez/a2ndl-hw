@@ -1,4 +1,5 @@
 import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2' # set TF logging to ERROR, needs to be done before importing TF
 import numpy as np
 from PIL import Image
 import random
@@ -7,19 +8,15 @@ import matplotlib.pyplot as plt
 from matplotlib import cm
 import json
 import math
-from itertools import islice
+from itertools import islice, cycle
 from tokens import get_tokenizer, preprocess_question
 from glove import get_embeddings, get_answer_distance_matrix
-
-
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2' # set TF logging to ERROR, needs to be done before importing TF
 import tensorflow as tf
 from tensorflow.keras.preprocessing.text import Tokenizer
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from tensorflow.keras.applications.vgg16 import preprocess_input 
 import tensorflow.keras.backend as K
-
 import callbacks
 from labels_dict import labels_dict
 
@@ -71,22 +68,25 @@ def set_seeds(seed):
     np.random.seed(seed)
     random.seed(seed)
 
+def k_split(idx, data, val_split, which_subset):
+    len_val = math.ceil(len(data) * val_split)
+    if which_subset == 'training':
+        left_side = data[:idx * len_val]
+        right_side = data[idx * len_val + len_val:]
+        return left_side + right_side
+    elif which_subset == 'validation':
+        return data[idx * len_val : idx * len_val + len_val]
+    else:
+        raise RuntimeError(f'Unknown subset {which_subset}')
+
+
 class VQADataset(tf.keras.utils.Sequence):
 
     def __init__(self, dataset_dir, which_subset, tokenized_texts, num_classes, img_generator=None, 
-        img_preprocessing_function=None, img_out_shape=[256, 256], validation_split=0.2):
-
-        NUMBER_OF_TRAIN_QUESTIONS = 58832
-        split_index = math.ceil(NUMBER_OF_TRAIN_QUESTIONS * (1-validation_split))
+        img_preprocessing_function=None, img_out_shape=[256, 256], validation_split=0.2, k_idx=0):
         
         with open(os.path.join(dataset_dir, 'train_questions_annotations.json')) as f:
-            annotations = json.load(f)
-            if which_subset == 'training':
-                self.annotations = list(islice(annotations.items(), split_index))
-            elif which_subset == 'validation':
-                self.annotations = list(islice(annotations.items(), split_index, None))
-            else:
-                raise RuntimeError(f'Unknown subset {which_subset}')
+            self.annotations = k_split(k_idx, list(json.load(f).items()), validation_split, which_subset)
 
         self.which_subset = which_subset
         self.dataset_dir = dataset_dir
@@ -191,6 +191,8 @@ if __name__ == "__main__":
     SAVE_BEST = True
     VALIDATION_SPLIT = 0.15
 
+    num_k = math.ceil(1 / VALIDATION_SPLIT)
+
     max_seq_length = 21
 
     dataset_dir = 'VQA_Dataset'
@@ -211,14 +213,6 @@ if __name__ == "__main__":
 
     num_classes = len(labels_dict)
 
-    model = create_model(img_dim, img_dim, 
-        num_classes=num_classes, 
-        max_seq_length=max_seq_length, 
-        embedding_matrix=get_embeddings(),
-    )
-
-    model.summary()
-
     if AUGMENT_DATA:
         img_data_gen = ImageDataGenerator(
             rotation_range=10,
@@ -232,83 +226,105 @@ if __name__ == "__main__":
     else:
         img_data_gen = None
 
-    dataset = VQADataset(dataset_dir, 'training', text_inputs, num_classes, 
-        img_out_shape=[img_dim, img_dim], 
-        validation_split=VALIDATION_SPLIT,
-        img_preprocessing_function=preprocess_input,
-        img_generator=img_data_gen,
-    )
-    print(len(dataset))
-    dataset_valid = VQADataset(dataset_dir, 'validation', text_inputs, num_classes, 
-        img_out_shape=[img_dim, img_dim], 
-        validation_split=VALIDATION_SPLIT,
-        img_preprocessing_function=preprocess_input,
-        img_generator=img_data_gen,
-    )
-    print(len(dataset_valid))
-
-    train_dataset = tf.data.Dataset.from_generator(
-        lambda: dataset,
-        output_types=((tf.float32, tf.float32), tf.float32),
-        output_shapes=(([img_dim, img_dim, 3], [max_seq_length]), [num_classes]),
-    ).batch(bs).repeat()
-
-    valid_dataset = tf.data.Dataset.from_generator(
-        lambda: dataset_valid,
-        output_types=((tf.float32, tf.float32), tf.float32),
-        output_shapes=(([img_dim, img_dim, 3], [max_seq_length]), [num_classes]),
-    ).batch(bs).repeat()
-
-    # Loss
-    # Weighted categorical crossentropy so the loss depends on the embedding vector distance between the class labels.
-    loss = WeightedCategoricalCrossentropy(get_answer_distance_matrix())
-
-    # learning rate
-    optimizer = tf.keras.optimizers.Adam(learning_rate=lr)
-
-    # Validation metrics
-    metrics = ['accuracy']
-
-    # Compile Model
-    model.compile(optimizer=optimizer, loss=loss, metrics=metrics)
-
-    # ---- Callbacks ----
-    exps_dir = "experiments"
-    if not os.path.exists(exps_dir):
-        os.makedirs(exps_dir)
-
-    model_dir = os.path.join(exps_dir, MODEL_NAME)
-    if not os.path.exists(model_dir):
-        os.makedirs(model_dir)
-
     now = datetime.now().strftime('%b%d_%H-%M-%S')
-    exp_dir = os.path.join(model_dir, str(now))
-    if not os.path.exists(exp_dir):
-        os.makedirs(exp_dir)
 
-    callbacks_list = []
+    for i in range(num_k):
 
-    # Model checkpoint
-    if CHECKPOINTS:
-        callbacks_list.append(callbacks.checkpoints(exp_dir))
+        model = create_model(img_dim, img_dim, 
+            num_classes=num_classes, 
+            max_seq_length=max_seq_length, 
+            embedding_matrix=get_embeddings(),
+        )
 
-    # Early stopping
-    if EARLY_STOP:
-        callbacks_list.append(callbacks.early_stopping(patience=10))
+        if i == 0:
+            model.summary()
 
-    # Save best model
-    # ----------------
-    best_checkpoint_path = None
-    if SAVE_BEST:
-        best_checkpoint_path, save_best_callback = callbacks.save_best(exp_dir)
-        callbacks_list.append(save_best_callback)
+        print(f"Training for k index={i}/{num_k}")
 
+        dataset = VQADataset(dataset_dir, 'training', text_inputs, num_classes, 
+            img_out_shape=[img_dim, img_dim], 
+            validation_split=VALIDATION_SPLIT,
+            img_preprocessing_function=preprocess_input,
+            img_generator=img_data_gen,
+            k_idx=i,
+        )
+        print(len(dataset))
+        dataset_valid = VQADataset(dataset_dir, 'validation', text_inputs, num_classes, 
+            img_out_shape=[img_dim, img_dim], 
+            validation_split=VALIDATION_SPLIT,
+            img_preprocessing_function=preprocess_input,
+            img_generator=img_data_gen,
+            k_idx=i,
+        )
+        print(len(dataset_valid))
 
-    model.fit(
-        x=train_dataset,
-        epochs=epochs,
-        steps_per_epoch=len(dataset) // bs,
-        validation_data=valid_dataset,
-        validation_steps=len(dataset_valid) // bs,
-        callbacks=callbacks_list
-    )
+        train_dataset = tf.data.Dataset.from_generator(
+            lambda: dataset,
+            output_types=((tf.float32, tf.float32), tf.float32),
+            output_shapes=(([img_dim, img_dim, 3], [max_seq_length]), [num_classes]),
+        ).batch(bs).repeat()
+
+        valid_dataset = tf.data.Dataset.from_generator(
+            lambda: dataset_valid,
+            output_types=((tf.float32, tf.float32), tf.float32),
+            output_shapes=(([img_dim, img_dim, 3], [max_seq_length]), [num_classes]),
+        ).batch(bs).repeat()
+
+        # Loss
+        # Weighted categorical crossentropy so the loss depends on the embedding vector distance between the class labels.
+        loss = WeightedCategoricalCrossentropy(get_answer_distance_matrix())
+
+        # learning rate
+        optimizer = tf.keras.optimizers.Adam(learning_rate=lr)
+
+        # Validation metrics
+        metrics = ['accuracy']
+
+        # Compile Model
+        model.compile(optimizer=optimizer, loss=loss, metrics=metrics)
+
+        # ---- Callbacks ----
+        exps_dir = "experiments"
+        if not os.path.exists(exps_dir):
+            os.makedirs(exps_dir)
+
+        model_dir = os.path.join(exps_dir, MODEL_NAME)
+        if not os.path.exists(model_dir):
+            os.makedirs(model_dir)
+
+        exp_dir = os.path.join(model_dir, str(now))
+        if not os.path.exists(exp_dir):
+            os.makedirs(exp_dir)
+
+        current_k_idx_dir = os.path.join(exp_dir, f"k_{i}")
+        if not os.path.exists(current_k_idx_dir):
+            os.makedirs(current_k_idx_dir)
+
+        callbacks_list = []
+
+        # Model checkpoint
+        if CHECKPOINTS:
+            callbacks_list.append(callbacks.checkpoints(current_k_idx_dir))
+
+        # Early stopping
+        if EARLY_STOP:
+            callbacks_list.append(callbacks.early_stopping(patience=10))
+
+        # Save best model
+        # ----------------
+        best_checkpoint_path = None
+        if SAVE_BEST:
+            best_checkpoint_path, save_best_callback = callbacks.save_best(current_k_idx_dir)
+            callbacks_list.append(save_best_callback)
+
+        model.fit(
+            x=train_dataset,
+            epochs=epochs,
+            steps_per_epoch=len(dataset) // bs,
+            validation_data=valid_dataset,
+            validation_steps=len(dataset_valid) // bs,
+            callbacks=callbacks_list
+        )
+
+        # Clear tensorflow session to release memory, otherwise it keeps rising after each fold
+        K.clear_session()
