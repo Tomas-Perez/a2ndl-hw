@@ -5,7 +5,6 @@ import random
 from datetime import datetime
 import math
 from tokens import build_text_inputs
-from glove import get_embeddings
 import tensorflow as tf
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from tensorflow.keras.applications.vgg16 import preprocess_input 
@@ -14,42 +13,73 @@ import callbacks
 from labels_dict import labels_dict
 from dataset import VQADataset
 
-MODEL_NAME = 'VQA-model'
+MODEL_NAME = 'VQA-transformer-model'
 
-def create_model(img_h, img_w, num_classes, max_seq_length, embedding_matrix, train_mode=True):
+# TransfomerBlock from "Text Classification with Transformer" tutorial
+class TransformerBlock(tf.keras.layers.Layer):
+    def __init__(self, embed_dim, num_heads, ff_dim, rate=0.1):
+        super(TransformerBlock, self).__init__()
+        self.att = tf.keras.layers.MultiHeadAttention(num_heads=num_heads, key_dim=embed_dim)
+        self.ffn = tf.keras.Sequential([
+            tf.keras.layers.Dense(ff_dim, activation="relu"), 
+            tf.keras.layers.Dense(embed_dim),
+        ])
+        self.layernorm1 = tf.keras.layers.LayerNormalization(epsilon=1e-6)
+        self.layernorm2 = tf.keras.layers.LayerNormalization(epsilon=1e-6)
+        self.dropout1 = tf.keras.layers.Dropout(rate)
+        self.dropout2 = tf.keras.layers.Dropout(rate)
+
+    def call(self, inputs, training):
+        attn_output = self.att(inputs, inputs)
+        attn_output = self.dropout1(attn_output, training=training)
+        out1 = self.layernorm1(inputs + attn_output)
+        ffn_output = self.ffn(out1)
+        ffn_output = self.dropout2(ffn_output, training=training)
+        return self.layernorm2(out1 + ffn_output)
+
+# TokenAndPositionEmbedding from "Text Classification with Transformer" tutorial
+class TokenAndPositionEmbedding(tf.keras.layers.Layer):
+    def __init__(self, maxlen, vocab_size, embed_dim):
+        super(TokenAndPositionEmbedding, self).__init__()
+        self.token_emb = tf.keras.layers.Embedding(input_dim=vocab_size, output_dim=embed_dim)
+        self.pos_emb = tf.keras.layers.Embedding(input_dim=maxlen, output_dim=embed_dim)
+
+    def call(self, x):
+        maxlen = tf.shape(x)[-1]
+        positions = tf.range(start=0, limit=maxlen, delta=1)
+        positions = self.pos_emb(positions)
+        x = self.token_emb(x)
+        return x + positions
+
+def create_model(img_h, img_w, num_classes, max_seq_length, vocab_size, embed_dim, train_mode=True):
     merge_layer_units = 512
+    num_heads = 6
+    ff_dim = 64
+    dropout_rate = 0.5
 
     img_feature_model = tf.keras.Sequential()
     vgg = tf.keras.applications.VGG16(weights='imagenet', include_top=False, input_shape=(img_h, img_w, 3))
     vgg.trainable = False
     img_feature_model.add(vgg)
     img_feature_model.add(tf.keras.layers.Flatten())
+    img_feature_model.add(tf.keras.layers.Dropout(dropout_rate))
     img_feature_model.add(tf.keras.layers.Dense(units=merge_layer_units))
-    img_feature_model.add(tf.keras.layers.BatchNormalization())
     img_feature_model.add(tf.keras.layers.ReLU())
 
     text_feature_model = tf.keras.Sequential()
     text_feature_model.add(tf.keras.Input(shape=[max_seq_length]))
-    embedding_layer = tf.keras.layers.Embedding(
-        embedding_matrix.shape[0], 
-        embedding_matrix.shape[1], 
-        weights=[embedding_matrix], 
-        input_length=max_seq_length, 
-        mask_zero=True
-    )
-    embedding_layer.trainable = False
-    text_feature_model.add(embedding_layer)
-    text_feature_model.add(tf.keras.layers.LSTM(units=512, return_sequences=True))
-    text_feature_model.add(tf.keras.layers.LSTM(units=512, return_sequences=False))
+    text_feature_model.add(TokenAndPositionEmbedding(max_seq_length, vocab_size, embed_dim))
+    text_feature_model.add(TransformerBlock(embed_dim, num_heads, ff_dim))
+    text_feature_model.add(tf.keras.layers.GlobalAveragePooling1D())
+    text_feature_model.add(tf.keras.layers.Dropout(dropout_rate))
     text_feature_model.add(tf.keras.layers.Dense(merge_layer_units))
-    text_feature_model.add(tf.keras.layers.BatchNormalization())
     text_feature_model.add(tf.keras.layers.ReLU())
 
     final_model_output = tf.keras.layers.Multiply()([img_feature_model.output, text_feature_model.output])
-    attention = tf.keras.layers.Attention()([text_feature_model.output, final_model_output])
-    final_model_output = tf.keras.layers.Concatenate()([final_model_output, attention])
     final_model_output = tf.keras.layers.BatchNormalization()(final_model_output)
-    final_model_output = tf.keras.layers.Dense(units=merge_layer_units, activation='relu')(final_model_output)
+    final_model_output = tf.keras.layers.Dropout(dropout_rate)(final_model_output)
+    final_model_output = tf.keras.layers.Dense(units=merge_layer_units//2, activation='relu')(final_model_output)
+    final_model_output = tf.keras.layers.Dropout(dropout_rate)(final_model_output)
     final_model_output = tf.keras.layers.Dense(units=num_classes, activation='softmax')(final_model_output)
 
     return tf.keras.Model(inputs = [img_feature_model.input, text_feature_model.input], outputs = final_model_output)
@@ -67,6 +97,7 @@ if __name__ == "__main__":
 
     num_k = math.ceil(1 / VALIDATION_SPLIT)
 
+    vocab_size = 4526
     max_seq_length = 21
 
     dataset_dir = 'VQA_Dataset'
@@ -84,6 +115,7 @@ if __name__ == "__main__":
     bs = 64
     lr = 1e-3
     epochs = 100
+    embed_dim = 64
 
     num_classes = len(labels_dict)
 
@@ -107,7 +139,8 @@ if __name__ == "__main__":
         model = create_model(img_dim, img_dim, 
             num_classes=num_classes, 
             max_seq_length=max_seq_length, 
-            embedding_matrix=get_embeddings(),
+            vocab_size=vocab_size+1,
+            embed_dim=embed_dim,
         )
 
         if i == 0:

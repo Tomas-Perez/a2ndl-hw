@@ -3,7 +3,6 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2' # set TF logging to ERROR, needs to be 
 from datetime import datetime
 from labels_dict import labels_dict
 from files_in_dir import get_files_in_directory
-from vqa_model import create_model, MODEL_NAME
 from tokens import get_tokenizer, preprocess_question
 from glove import get_embeddings
 import numpy as np
@@ -16,6 +15,14 @@ from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from tensorflow.keras.applications.vgg16 import preprocess_input 
 import tensorflow.keras.backend as K
 from progressbar import progressbar
+from enum import Enum
+
+from vqa_model import MODEL_NAME as VQA_MODEL_NAME
+from vqa_transformer_model import MODEL_NAME as VQA_TRANSFORMER_MODEL_NAME
+
+# Choose model
+# from vqa_model import create_model, MODEL_NAME
+from vqa_transformer_model import create_model, MODEL_NAME
 
 def create_csv(results, results_dir='./'):
     csv_fname = 'results_'
@@ -69,13 +76,23 @@ for f_idx, f in enumerate(folds):
     print(f"predicting for fold {f_idx}")
     weights = os.path.join(f, 'best/model')
 
-    model = create_model(img_dim, img_dim, 
-        num_classes=num_classes, 
-        max_seq_length=max_seq_length, 
-        embedding_matrix=get_embeddings(),
-    )
+    if MODEL_NAME == VQA_TRANSFORMER_MODEL_NAME:
+        embed_dim = 64
+        vocab_size = 4526
+        model = create_model(img_dim, img_dim, 
+            num_classes=num_classes, 
+            max_seq_length=max_seq_length, 
+            vocab_size=vocab_size+1,
+            embed_dim=embed_dim,
+        )
+    else:
+        model = create_model(img_dim, img_dim, 
+            num_classes=num_classes, 
+            max_seq_length=max_seq_length, 
+            embedding_matrix=get_embeddings(),
+        )
 
-    model.load_weights(weights).expect_partial()
+    model.load_weights(weights)
 
     for i in progressbar(range(0, len(annotation_ids), bs)):
         question_batch = np.array(text_inputs[i:i+bs])
