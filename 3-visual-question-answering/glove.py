@@ -51,7 +51,7 @@ def build_embeddings(word_index, dim):
 def get_embeddings():
     if not os.path.exists(EMBEDDINGS_PATH):
         tokenizer = get_tokenizer()
-        embedding_matrix = build_embeddings(tokenizer.word_index, Dimensions.D_200)
+        embedding_matrix = build_embeddings(tokenizer.word_index, Dimensions.D_50)
         np.save(EMBEDDINGS_PATH, embedding_matrix)
 
     embedding_matrix = np.load(EMBEDDINGS_PATH)
@@ -88,7 +88,7 @@ def build_answer_embeddings(embedding_dim):
 # Get answer embedding matrix from file if it exists, otherwise create it and save it for next time.
 def get_answer_embeddings():
     if not os.path.exists(ANSWER_EMBEDDINGS_PATH):
-        embedding_matrix = build_answer_embeddings(Dimensions.D_200)
+        embedding_matrix = build_answer_embeddings(Dimensions.D_50)
         np.save(ANSWER_EMBEDDINGS_PATH, embedding_matrix)
 
     embedding_matrix = np.load(ANSWER_EMBEDDINGS_PATH)
@@ -110,7 +110,7 @@ def answer_distance_matrix(embedding_dim):
 # Get answer distance matrix from file if it exists, otherwise create it and save it for next time.
 def get_answer_distance_matrix():
     if not os.path.exists(ANSWER_DISTANCE_MATRIX_PATH):
-        ans_dist_matrix = answer_distance_matrix(Dimensions.D_200)
+        ans_dist_matrix = answer_distance_matrix(Dimensions.D_50)
         np.save(ANSWER_DISTANCE_MATRIX_PATH, ans_dist_matrix)
 
     ans_dist_matrix = np.load(ANSWER_DISTANCE_MATRIX_PATH)
